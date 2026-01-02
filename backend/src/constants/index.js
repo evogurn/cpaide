@@ -1,0 +1,112 @@
+export const HTTP_STATUS = {
+  OK: 200,
+  CREATED: 201,
+  NO_CONTENT: 204,
+  BAD_REQUEST: 400,
+  UNAUTHORIZED: 401,
+  FORBIDDEN: 403,
+  NOT_FOUND: 404,
+  CONFLICT: 409,
+  UNPROCESSABLE_ENTITY: 422,
+  TOO_MANY_REQUESTS: 429,
+  INTERNAL_SERVER_ERROR: 500,
+};
+
+export const ERROR_CODES = {
+  // Auth errors
+  INVALID_CREDENTIALS: 'INVALID_CREDENTIALS',
+  TOKEN_EXPIRED: 'TOKEN_EXPIRED',
+  TOKEN_INVALID: 'TOKEN_INVALID',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  FORBIDDEN: 'FORBIDDEN',
+  EMAIL_ALREADY_EXISTS: 'EMAIL_ALREADY_EXISTS',
+  
+  // Validation errors
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  BAD_REQUEST: 'BAD_REQUEST',
+  
+  // Resource errors
+  NOT_FOUND: 'NOT_FOUND',
+  ALREADY_EXISTS: 'ALREADY_EXISTS',
+  CONFLICT: 'CONFLICT',
+  
+  // Permission errors
+  INSUFFICIENT_PERMISSIONS: 'INSUFFICIENT_PERMISSIONS',
+  TENANT_MISMATCH: 'TENANT_MISMATCH',
+  
+  // File errors
+  FILE_TOO_LARGE: 'FILE_TOO_LARGE',
+  INVALID_FILE_TYPE: 'INVALID_FILE_TYPE',
+  UPLOAD_FAILED: 'UPLOAD_FAILED',
+  
+  // Server errors
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  DATABASE_ERROR: 'DATABASE_ERROR',
+};
+
+export const ROLES = {
+  SUPER_ADMIN: 'SUPER_ADMIN',
+  TENANT_ADMIN: 'TENANT_ADMIN',
+  USER: 'USER',
+  VIEWER: 'VIEWER',
+};
+
+export const PERMISSIONS = {
+  // Document permissions
+  DOCUMENT_CREATE: 'document:create',
+  DOCUMENT_READ: 'document:read',
+  DOCUMENT_UPDATE: 'document:update',
+  DOCUMENT_DELETE: 'document:delete',
+  DOCUMENT_SHARE: 'document:share',
+  
+  // Folder permissions
+  FOLDER_CREATE: 'folder:create',
+  FOLDER_READ: 'folder:read',
+  FOLDER_UPDATE: 'folder:update',
+  FOLDER_DELETE: 'folder:delete',
+  FOLDER_MANAGE_PERMISSIONS: 'folder:manage_permissions',
+  
+  // User permissions
+  USER_CREATE: 'user:create',
+  USER_READ: 'user:read',
+  USER_UPDATE: 'user:update',
+  USER_DELETE: 'user:delete',
+  
+  // Tenant permissions
+  TENANT_MANAGE: 'tenant:manage',
+  TENANT_SETTINGS: 'tenant:settings',
+  
+  // AI permissions
+  AI_QUERY: 'ai:query',
+  AI_MANAGE: 'ai:manage',
+};
+
+export const FILE_TYPES = {
+  PDF: 'application/pdf',
+  DOC: 'application/msword',
+  DOCX: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  TXT: 'text/plain',
+  PNG: 'image/png',
+  JPG: 'image/jpeg',
+  JPEG: 'image/jpeg',
+};
+
+export const DOCUMENT_STATUS = {
+  PENDING: 'PENDING',
+  PROCESSING: 'PROCESSING',
+  READY: 'READY',
+  FAILED: 'FAILED',
+  ARCHIVED: 'ARCHIVED',
+};
+
+export const TENANT_STATUS = {
+  ACTIVE: 'ACTIVE',
+  SUSPENDED: 'SUSPENDED',
+  INACTIVE: 'INACTIVE',
+};
+
+export const USER_STATUS = {
+  ACTIVE: 'ACTIVE',
+  INACTIVE: 'INACTIVE',
+  SUSPENDED: 'SUSPENDED',
+};

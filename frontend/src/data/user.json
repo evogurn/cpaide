@@ -1,0 +1,7 @@
+{
+  "id": "u001",
+  "name": "John Doe",
+  "email": "john.doe@example.com",
+  "role": "Admin",
+  "profileImage": "/assets/user/dp.png"
+}

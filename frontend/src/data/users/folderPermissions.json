@@ -1,0 +1,17 @@
+{
+  "city": "edit",
+  "community": "view",
+  "lot-27": "edit",
+  "custom": "edit",
+  "site-survey": "view",
+  "floor-plan": "edit",
+  "hvac": "view",
+  "buyer-docs": "no-access",
+  "invoices": "no-access",
+  "specifications": "edit",
+  "warranty": "view",
+  "inspection-reports": "view",
+  "photos": "edit",
+  "contracts": "no-access",
+  "selections": "no-access"
+}

@@ -1,0 +1,26 @@
+{
+  "Basic": {
+    "name": "Basic",
+    "price": "$0",
+    "period": "forever",
+    "storage": "1 GB",
+    "users": "1",
+    "aiQueries": "100/month"
+  },
+  "Pro": {
+    "name": "Pro",
+    "price": "$19",
+    "period": "per month",
+    "storage": "100 GB",
+    "users": "10",
+    "aiQueries": "10,000/month"
+  },
+  "Enterprise": {
+    "name": "Enterprise",
+    "price": "$99",
+    "period": "per month",
+    "storage": "1 TB",
+    "users": "Unlimited",
+    "aiQueries": "Unlimited"
+  }
+}

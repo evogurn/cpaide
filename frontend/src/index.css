@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* Light mode variables */
+  --background: #f9fafb;
+  --surface: #ffffff;
+  --surface-hover: #f3f4f6;
+  --text-primary: #1f2937;
+  --text-secondary: #4b5563;
+  --text-disabled: #9ca3af;
+  --border-color: #e5e7eb;
+  --shadow-color: rgba(0, 0, 0, 0.1);
+  --accent-bg-hover: rgba(59, 130, 246, 0.1);
+}
+
+.dark {
+  /* Dark mode variables */
+  --background: #111827;
+  --surface: #1f2937;
+  --surface-hover: #374151;
+  --text-primary: #f9fafb;
+  --text-secondary: #d1d5db;
+  --text-disabled: #9ca3af;
+  --border-color: #4b5563;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --accent-bg-hover: rgba(59, 130, 246, 0.2);
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--background);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Custom styles */
+.sidebar-transition {
+  transition: transform 0.3s ease-in-out;
+}
+
+/* Animation classes for slider */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.animate-slideInRight {
+  animation: slideInRight 1s ease-in-out forwards;
+}
+
+.animate-slideInLeft {
+  animation: slideInLeft 1s ease-in-out forwards;
+}
+
+/* Ensure all components adapt to dark mode */
+.bg-white {
+  @apply dark:bg-dark-bg-secondary;
+}
+
+.bg-gray-50 {
+  @apply dark:bg-dark-bg-tertiary;
+}
+
+.text-gray-900 {
+  @apply dark:text-dark-text-primary;
+}
+
+.text-gray-700 {
+  @apply dark:text-dark-text-primary;
+}
+
+.text-gray-500 {
+  @apply dark:text-dark-text-secondary;
+}
+
+.border-gray-200 {
+  @apply dark:border-dark-border;
+}
+
+.border-gray-300 {
+  @apply dark:border-dark-border;
+}
+
+.shadow-sm {
+  @apply dark:shadow-[0_2px_4px_var(--shadow-color)];
+}
+
+.shadow-lg {
+  @apply dark:shadow-[0_10px_15px_-3px_var(--shadow-color),0_4px_6px_-2px_var(--shadow-color)];
+}
+
+.shadow-xl {
+  @apply dark:shadow-[0_20px_25px_-5px_var(--shadow-color),0_10px_10px_-5px_var(--shadow-color)];
+}

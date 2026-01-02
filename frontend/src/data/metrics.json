@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Total Projects",
+    "value": "24",
+    "change": "+3",
+    "changeType": "positive"
+  },
+  {
+    "name": "Active Users",
+    "value": "42",
+    "change": "+7",
+    "changeType": "positive"
+  },
+  {
+    "name": "Storage Used",
+    "value": "124.6 GB",
+    "change": "+12.4 GB",
+    "changeType": "negative"
+  }
+]
