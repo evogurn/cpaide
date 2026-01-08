@@ -6,26 +6,15 @@ class FolderService {
    * Create folder
    */
   async createFolder({ tenantId, name, parentId, ownerId, metadata }) {
-    console.log('Creating folder:', { tenantId, name, parentId, ownerId });
-    
-    // Validate parentId - if it's not a valid UUID format, treat as null (root folder)
-    let validParentId = parentId;
-    if (parentId && typeof parentId === 'string' && !this.isValidUUID(parentId)) {
-      console.log('Invalid parentId provided, treating as root folder:', parentId);
-      validParentId = null;
-    }
-    
     let path = `/${name}`;
 
-    // If valid parentId provided, calculate path
-    if (validParentId) {
-      console.log('Checking parent folder:', validParentId);
+    // If parentId provided, calculate path
+    if (parentId) {
       const parent = await prisma.folder.findUnique({
-        where: { id: validParentId, deletedAt: null },
+        where: { id: parentId },
       });
 
       if (!parent || parent.tenantId !== tenantId) {
-        console.log('Parent folder not found or invalid:', { parent, tenantId });
         const error = new Error('Parent folder not found');
         error.statusCode = HTTP_STATUS.NOT_FOUND;
         error.code = ERROR_CODES.NOT_FOUND;
@@ -56,7 +45,6 @@ class FolderService {
       },
     });
 
-    console.log('Created folder:', folder);
     return folder;
   }
 
@@ -64,7 +52,6 @@ class FolderService {
    * Get folder by ID
    */
   async getFolderById(id, tenantId) {
-    console.log('Getting folder by ID:', { id, tenantId });
     const folder = await prisma.folder.findFirst({
       where: { id, tenantId, deletedAt: null },
       include: {
@@ -88,7 +75,6 @@ class FolderService {
       },
     });
 
-    console.log('Found folder:', folder);
     if (!folder) {
       const error = new Error('Folder not found');
       error.statusCode = HTTP_STATUS.NOT_FOUND;
@@ -141,12 +127,10 @@ class FolderService {
    * Update folder
    */
   async updateFolder(id, tenantId, data) {
-    console.log('Updating folder:', { id, tenantId, data });
     const folder = await prisma.folder.findFirst({
       where: { id, tenantId, deletedAt: null },
     });
 
-    console.log('Found folder for update:', folder);
     if (!folder) {
       const error = new Error('Folder not found');
       error.statusCode = HTTP_STATUS.NOT_FOUND;
@@ -168,20 +152,91 @@ class FolderService {
       data,
     });
 
-    console.log('Updated folder:', updated);
     return updated;
+  }
+
+  /**
+   * Rename folder
+   */
+  async renameFolder(id, tenantId, name) {
+    const folder = await prisma.folder.findFirst({
+      where: { id, tenantId, deletedAt: null },
+    });
+
+    if (!folder) {
+      const error = new Error('Folder not found');
+      error.statusCode = HTTP_STATUS.NOT_FOUND;
+      error.code = ERROR_CODES.NOT_FOUND;
+      throw error;
+    }
+
+    if (name && name !== folder.name) {
+      // Check for duplicate name in the same parent folder
+      if (folder.parentId) {
+        const duplicateFolder = await prisma.folder.findFirst({
+          where: {
+            parentId: folder.parentId,
+            name: name,
+            id: { not: id },
+            tenantId,
+            deletedAt: null,
+          },
+        });
+
+        if (duplicateFolder) {
+          const error = new Error('A folder with this name already exists in the parent folder');
+          error.statusCode = HTTP_STATUS.CONFLICT;
+          error.code = ERROR_CODES.VALIDATION_ERROR;
+          throw error;
+        }
+      } else {
+        // Check for duplicate in root folder
+        const duplicateFolder = await prisma.folder.findFirst({
+          where: {
+            parentId: null,
+            name: name,
+            id: { not: id },
+            tenantId,
+            deletedAt: null,
+          },
+        });
+
+        if (duplicateFolder) {
+          const error = new Error('A folder with this name already exists in the root folder');
+          error.statusCode = HTTP_STATUS.CONFLICT;
+          error.code = ERROR_CODES.VALIDATION_ERROR;
+          throw error;
+        }
+      }
+
+      // Update path
+      const newPath = folder.path.replace(new RegExp(`/${folder.name}$`), `/${name}`);
+      
+      const updated = await prisma.folder.update({
+        where: { id },
+        data: {
+          name,
+          path: newPath,
+        },
+      });
+
+      // Update all children paths
+      await this.updateChildrenPaths(folder.path, newPath, tenantId);
+
+      return updated;
+    }
+
+    return folder; // Return unchanged if no rename needed
   }
 
   /**
    * Move folder
    */
   async moveFolder(id, tenantId, targetParentId) {
-    console.log('Moving folder:', { id, tenantId, targetParentId });
     const folder = await prisma.folder.findFirst({
       where: { id, tenantId, deletedAt: null },
     });
 
-    console.log('Found folder to move:', folder);
     if (!folder) {
       const error = new Error('Folder not found');
       error.statusCode = HTTP_STATUS.NOT_FOUND;
@@ -190,16 +245,13 @@ class FolderService {
     }
 
     let newPath = `/${folder.name}`;
-    let newParentId = targetParentId;
 
     if (targetParentId) {
-      console.log('Checking target parent folder:', targetParentId);
       const parent = await prisma.folder.findFirst({
         where: { id: targetParentId, tenantId, deletedAt: null },
       });
 
       if (!parent) {
-        console.log('Target parent folder not found:', targetParentId);
         const error = new Error('Target folder not found');
         error.statusCode = HTTP_STATUS.NOT_FOUND;
         error.code = ERROR_CODES.NOT_FOUND;
@@ -207,14 +259,13 @@ class FolderService {
       }
 
       newPath = `${parent.path}/${folder.name}`;
-      newParentId = parent.id;
     }
 
     // Update folder path
     const updated = await prisma.folder.update({
       where: { id },
       data: {
-        parentId: newParentId,
+        parentId: targetParentId,
         path: newPath,
       },
     });
@@ -222,7 +273,6 @@ class FolderService {
     // Update children paths
     await this.updateChildrenPaths(folder.path, newPath, tenantId);
 
-    console.log('Moved folder:', updated);
     return updated;
   }
 
@@ -230,12 +280,10 @@ class FolderService {
    * Delete folder (soft delete)
    */
   async deleteFolder(id, tenantId) {
-    console.log('Deleting folder:', { id, tenantId });
     const folder = await prisma.folder.findFirst({
       where: { id, tenantId, deletedAt: null },
     });
 
-    console.log('Found folder to delete:', folder);
     if (!folder) {
       const error = new Error('Folder not found');
       error.statusCode = HTTP_STATUS.NOT_FOUND;
@@ -261,7 +309,6 @@ class FolderService {
       }),
     ]);
 
-    console.log('Deleted folder:', id);
     return { message: 'Folder deleted successfully' };
   }
 
@@ -286,22 +333,25 @@ class FolderService {
   }
 
   /**
-   * Get all folders for tenant (flat list)
+   * Get folder tree structure
    */
-  async getAllFoldersForTenant(tenantId) {
-    console.log('Getting all folders for tenant:', tenantId);
+  async getFolderTree(tenantId) {
+    // Get all folders for the tenant
     const folders = await prisma.folder.findMany({
       where: {
         tenantId,
         deletedAt: null,
       },
-      orderBy: { createdAt: 'asc' },
+      orderBy: {
+        name: 'asc',
+      },
       include: {
         owner: {
           select: {
             id: true,
             firstName: true,
             lastName: true,
+            email: true,
           },
         },
         _count: {
@@ -313,16 +363,30 @@ class FolderService {
       },
     });
 
-    console.log('Found folders for tenant:', tenantId, folders.length);
-    return folders;
-  }
-  
-  /**
-   * Helper function to validate UUID format
-   */
-  isValidUUID(uuid) {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(uuid);
+    // Build the tree structure
+    const folderMap = {};
+    const rootFolders = [];
+
+    // First pass: create map of all folders
+    folders.forEach(folder => {
+      folderMap[folder.id] = {
+        ...folder,
+        children: [],
+      };
+    });
+
+    // Second pass: build parent-child relationships
+    folders.forEach(folder => {
+      if (folder.parentId && folderMap[folder.parentId]) {
+        // Add to parent's children
+        folderMap[folder.parentId].children.push(folderMap[folder.id]);
+      } else {
+        // Root folder
+        rootFolders.push(folderMap[folder.id]);
+      }
+    });
+
+    return rootFolders;
   }
 }
 

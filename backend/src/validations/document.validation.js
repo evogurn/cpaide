@@ -13,6 +13,10 @@ export const updateDocumentSchema = z.object({
   metadata: z.record(z.any()).optional(),
 });
 
+export const renameDocumentSchema = z.object({
+  name: z.string().min(1, 'Document name is required').max(255, 'Document name too long'),
+});
+
 export const moveDocumentSchema = z.object({
   targetFolderId: z.string().uuid('Invalid target folder ID').nullable(),
 });

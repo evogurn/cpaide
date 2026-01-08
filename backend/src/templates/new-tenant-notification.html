@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>New Tenant Registration</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .header { text-align: center; margin-bottom: 30px; }
+        .info-box { background-color: #f3f4f6; padding: 15px; border-radius: 6px; margin: 20px 0; }
+        .cta-button { display: inline-block; background-color: #3b82f6; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+        .footer { margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2 style="color: #3b82f6;">New Tenant Registration</h2>
+        </div>
+        <p>Hello {{adminName}},</p>
+        <p>A new tenant has registered and requires your approval:</p>
+        <div class="info-box">
+            <strong>Tenant Name:</strong> {{tenantName}}<br>
+            <strong>Email:</strong> {{tenantEmail}}<br>
+            <strong>Registration Date:</strong> {{registrationDate}}<br>
+            <strong>Tenant ID:</strong> {{tenantId}}
+        </div>
+        <p>Please review the registration details and approve or reject the request.</p>
+        <div style="text-align: center; margin: 30px 0;">
+            <a href="{{adminPanelUrl}}" class="cta-button">Access Admin Panel</a>
+        </div>
+        <div class="footer">
+            <p>© 2025 CPAide. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

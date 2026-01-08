@@ -45,19 +45,29 @@ app.use(notFoundHandler);
 // Error handler
 app.use(errorHandler);
 
+// Start server
+const PORT = env.PORT || 5000;
+let server;
+
 // Graceful shutdown
 const gracefulShutdown = async (signal) => {
   logger.info(`${signal} received, shutting down gracefully...`);
   
-  server.close(async () => {
-    logger.info('HTTP server closed');
-    
-    // Close database connection
+  if (server) {
+    server.close(async () => {
+      logger.info('HTTP server closed');
+      
+      // Close database connection
+      await disconnectDB();
+      
+      logger.info('Shutdown complete');
+      process.exit(0);
+    });
+  } else {
     await disconnectDB();
-    
     logger.info('Shutdown complete');
     process.exit(0);
-  });
+  }
   
   // Force shutdown after 10 seconds
   setTimeout(() => {
@@ -66,10 +76,6 @@ const gracefulShutdown = async (signal) => {
   }, 10000);
 };
 
-// Start server
-const PORT = env.PORT || 5000;
-let server;
-
 const startServer = async () => {
   try {
     // Connect to database
@@ -77,9 +83,9 @@ const startServer = async () => {
     
     // Start listening
     server = app.listen(PORT, () => {
-      logger.info(`🚀 Server running on port ${PORT}`);
-      logger.info(`📝 Environment: ${env.NODE_ENV}`);
-      logger.info(`🌍 CORS origin: ${env.CORS_ORIGIN}`);
+      logger.info(`Server running on port ${PORT}`);
+      logger.info(`Environment: ${env.NODE_ENV}`);
+      logger.info(`CORS origin: ${env.CORS_ORIGIN}`);
     });
     
     // Graceful shutdown handlers

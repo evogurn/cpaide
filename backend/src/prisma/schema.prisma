@@ -1,78 +1,87 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
   previewFeatures = ["postgresqlExtensions"]
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
   extensions = [vector]
 }
 
-// Multi-Tenant Core Models
 model Tenant {
-  id            String   @id @default(uuid())
-  name          String
-  subdomain     String   @unique
-  domain        String?  @unique
-  status        TenantStatus @default(ACTIVE)
-  settings      Json?    @db.JsonB
-  subscriptionPlanId String?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  deletedAt     DateTime?
-
-  // Relations
-  users         User[]
-  documents     Document[]
-  folders       Folder[]
-  subscriptionPlan SubscriptionPlan? @relation(fields: [subscriptionPlanId], references: [id])
-  paymentRecords PaymentRecord[]
-  auditLogs     AuditLog[]
+  id                  String               @id @default(uuid())
+  name                String
+  subdomain           String               @unique
+  domain              String?              @unique
+  status              TenantStatus         @default(ACTIVE)
+  settings            Json?
+  subscriptionPlanId  String?
+  customPrice         Decimal?             @db.Decimal(10, 2)  // Custom price for this tenant
+  discountPercent     Decimal?             @db.Decimal(5, 2)   // Discount percentage
+  discountFixedAmount Decimal?             @db.Decimal(10, 2)  // Fixed discount amount
+  discountCode        String?              // Discount code if applicable
+  discountExpiry      DateTime?            // When discount expires
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  deletedAt           DateTime?
+  approvalStatus      TenantApprovalStatus @default(PENDING)
+  approvedAt          DateTime?
+  approvedBy          String?
+  auditLogs           AuditLog[]
+  documents           Document[]
   featureSliderSlides FeatureSliderSlide[]
-  otpVerifications OtpVerification[]
+  folders             Folder[]
+  loginHistory        LoginHistory[]
+  otpVerifications    OtpVerification[]
+  paymentRecords      PaymentRecord[]
+  approvedByUser      User?                @relation("TenantApprovedBy", fields: [approvedBy], references: [id])
+  subscriptionPlan    SubscriptionPlan?    @relation(fields: [subscriptionPlanId], references: [id])
+  users               User[]
+  notifications       Notification[]
+  supportTickets      SupportTicket[]
 
   @@index([subdomain])
   @@index([status])
+  @@index([approvalStatus])
   @@map("tenants")
 }
 
-enum TenantStatus {
-  ACTIVE
-  SUSPENDED
-  INACTIVE
-}
-
 model User {
-  id            String   @id @default(uuid())
-  tenantId      String
-  email         String
-  password      String
-  firstName     String
-  lastName      String
-  avatar        String?
-  status        UserStatus @default(ACTIVE)
-  emailVerified Boolean  @default(false)
-  phone         String?
-  phoneVerified Boolean? @default(false)
+  id               String         @id @default(uuid())
+  tenantId         String
+  email            String
+  password         String
+  firstName        String
+  lastName         String
+  avatar           String?
+  status           UserStatus     @default(ACTIVE)
+  emailVerified    Boolean        @default(false)
+  lastLoginAt      DateTime?
+  metadata         Json?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  deletedAt        DateTime?
+  address          String?
   alternativePhone String?
-  timeZone      String?
-  address       String?
-  lastLoginAt   DateTime?
-  metadata      Json?    @db.JsonB
+  phone            String?
+  phoneVerified    Boolean?       @default(false)
+  timeZone         String?
+  auditLogs        AuditLog[]
+  documents        Document[]
+  folders          Folder[]
+  loginHistory     LoginHistory[]
+  refreshTokens    RefreshToken[]
+  approvedTenants  Tenant[]       @relation("TenantApprovedBy")
+  userRoles        UserRole[]
+  notifications    Notification[]
+  tenant           Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  deletedAt     DateTime?
-
-  // Relations
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userRoles     UserRole[]
-  documents     Document[]
-  folders       Folder[]
-  refreshTokens RefreshToken[]
-  auditLogs     AuditLog[]
+  // Support ticket relations
+  createdTickets   SupportTicket[] @relation("SupportTicketCreatedBy")
+  assignedTickets  SupportTicket[] @relation("SupportTicketAssignedTo")
+  resolvedTickets  SupportTicket[] @relation("SupportTicketResolvedBy")
+  ticketComments   SupportTicketComment[] @relation("SupportTicketCommentCreated")
 
   @@unique([tenantId, email])
   @@index([tenantId])
@@ -80,95 +89,74 @@ model User {
   @@map("users")
 }
 
-enum UserStatus {
-  ACTIVE
-  INACTIVE
-  SUSPENDED
-}
-
 model Role {
-  id            String   @id @default(uuid())
-  name          String   @unique
-  description   String?
-  isSystem      Boolean  @default(false)
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  userRoles     UserRole[]
-  permissions   RolePermission[]
+  id          String           @id @default(uuid())
+  name        String           @unique
+  description String?
+  isSystem    Boolean          @default(false)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  permissions RolePermission[]
+  userRoles   UserRole[]
 
   @@map("roles")
 }
 
 model Permission {
-  id            String   @id @default(uuid())
-  name          String   @unique
-  resource      String
-  action        String
-  description   String?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  roles         RolePermission[]
+  id          String           @id @default(uuid())
+  name        String           @unique
+  resource    String
+  action      String
+  description String?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  roles       RolePermission[]
 
   @@index([resource, action])
   @@map("permissions")
 }
 
 model RolePermission {
-  id            String   @id @default(uuid())
-  roleId        String
-  permissionId  String
-  
-  createdAt     DateTime @default(now())
-
-  // Relations
-  role          Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  permission    Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  id           String     @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime   @default(now())
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
   @@unique([roleId, permissionId])
   @@map("role_permissions")
 }
 
 model UserRole {
-  id            String   @id @default(uuid())
-  userId        String
-  roleId        String
-  
-  createdAt     DateTime @default(now())
-
-  // Relations
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  role          Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  id        String   @id @default(uuid())
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, roleId])
   @@map("user_roles")
 }
 
 model Folder {
-  id            String   @id @default(uuid())
-  tenantId      String
-  name          String
-  parentId      String?
-  path          String   // Materialized path for efficient queries
-  ownerId       String
-  permissions   Json?    @db.JsonB // Folder-level ACL
-  metadata      Json?    @db.JsonB
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  deletedAt     DateTime?
-
-  // Relations
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  owner         User     @relation(fields: [ownerId], references: [id])
-  parent        Folder?  @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
-  children      Folder[] @relation("FolderHierarchy")
-  documents     Document[]
+  id          String     @id @default(uuid())
+  tenantId    String
+  name        String
+  parentId    String?
+  path        String
+  ownerId     String
+  permissions Json?
+  metadata    Json?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  deletedAt   DateTime?
+  documents   Document[]
+  owner       User       @relation(fields: [ownerId], references: [id])
+  parent      Folder?    @relation("FolderHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children    Folder[]   @relation("FolderHierarchy")
+  tenant      Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@index([tenantId])
   @@index([parentId])
@@ -178,7 +166,7 @@ model Folder {
 }
 
 model Document {
-  id            String   @id @default(uuid())
+  id            String            @id @default(uuid())
   tenantId      String
   folderId      String?
   ownerId       String
@@ -186,25 +174,22 @@ model Document {
   originalName  String
   mimeType      String
   size          BigInt
-  storageKey    String   // S3 key or file path
-  version       Int      @default(1)
-  status        DocumentStatus @default(PENDING)
+  storageKey    String
+  version       Int               @default(1)
+  status        DocumentStatus    @default(PENDING)
   checksum      String?
   tags          String[]
-  metadata      Json?    @db.JsonB
-  extractedText String?  @db.Text
-  permissions   Json?    @db.JsonB // Document-level ACL
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  metadata      Json?
+  extractedText String?
+  permissions   Json?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
   deletedAt     DateTime?
-
-  // Relations
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  folder        Folder?  @relation(fields: [folderId], references: [id], onDelete: SetNull)
-  owner         User     @relation(fields: [ownerId], references: [id])
-  embeddings    Embedding[]
   history       DocumentHistory[]
+  folder        Folder?           @relation(fields: [folderId], references: [id])
+  owner         User              @relation(fields: [ownerId], references: [id])
+  tenant        Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  embeddings    Embedding[]
 
   @@index([tenantId])
   @@index([folderId])
@@ -212,6 +197,193 @@ model Document {
   @@index([status])
   @@index([tags])
   @@map("documents")
+}
+
+model DocumentHistory {
+  id         String     @id @default(uuid())
+  documentId String
+  version    Int
+  name       String
+  size       BigInt
+  storageKey String
+  checksum   String?
+  changedBy  String
+  changeType ChangeType
+  metadata   Json?
+  createdAt  DateTime   @default(now())
+  document   Document   @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("document_history")
+}
+
+model Embedding {
+  id         String                 @id @default(uuid())
+  documentId String
+  chunkIndex Int
+  chunkText  String
+  vector     Unsupported("vector")?
+  metadata   Json?
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+  document   Document               @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@index([documentId])
+  @@map("embeddings")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  isRevoked Boolean  @default(false)
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("refresh_tokens")
+}
+
+model SubscriptionPlan {
+  id             String          @id @default(uuid())
+  name           String          @unique
+  displayName    String
+  description    String?
+  price          Decimal         @db.Decimal(10, 2)
+  currency       String          @default("USD")
+  interval       BillingInterval
+  features       Json
+  limits         Json
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  paymentRecords PaymentRecord[]
+  tenants        Tenant[]
+
+  @@map("subscription_plans")
+}
+
+model PaymentRecord {
+  id            String           @id @default(uuid())
+  tenantId      String
+  planId        String
+  amount        Decimal          @db.Decimal(10, 2)
+  currency      String           @default("USD")
+  status        PaymentStatus    @default(PENDING)
+  paymentMethod String?
+  transactionId String?          @unique
+  metadata      Json?
+  paidAt        DateTime?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  plan          SubscriptionPlan @relation(fields: [planId], references: [id])
+  tenant        Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("payment_records")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  tenantId   String
+  userId     String?
+  action     String
+  resource   String
+  resourceId String?
+  ipAddress  String?
+  userAgent  String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  tenant     Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user       User?    @relation(fields: [userId], references: [id])
+
+  @@index([tenantId])
+  @@index([userId])
+  @@index([resource, resourceId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model FeatureSliderSlide {
+  id          String   @id @default(uuid())
+  tenantId    String
+  title       String
+  description String
+  icon        String
+  imageUrl    String?
+  enabled     Boolean  @default(true)
+  order       Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([order])
+  @@index([enabled])
+  @@map("feature_slider_slides")
+}
+
+model OtpVerification {
+  id                String   @id @default(uuid())
+  email             String
+  otp               String
+  hashedOtp         String
+  expiresAt         DateTime
+  verificationToken String   @unique
+  isUsed            Boolean  @default(false)
+  tenantId          String?
+  userType          String
+  payload           Json
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  tenant            Tenant?  @relation(fields: [tenantId], references: [id])
+
+  @@index([email])
+  @@index([verificationToken])
+  @@index([expiresAt])
+  @@index([isUsed])
+  @@map("otp_verifications")
+}
+
+model LoginHistory {
+  id            String      @id @default(uuid())
+  userId        String?
+  tenantId      String?
+  ipAddress     String?
+  userAgent     String?
+  loginStatus   LoginStatus @default(SUCCESS)
+  failureReason String?
+  metadata      Json?
+  createdAt     DateTime    @default(now())
+  tenant        Tenant?     @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  user          User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([tenantId])
+  @@index([createdAt])
+  @@index([loginStatus])
+  @@map("login_history")
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
+enum TenantApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
 }
 
 enum DocumentStatus {
@@ -222,27 +394,6 @@ enum DocumentStatus {
   ARCHIVED
 }
 
-model DocumentHistory {
-  id            String   @id @default(uuid())
-  documentId    String
-  version       Int
-  name          String
-  size          BigInt
-  storageKey    String
-  checksum      String?
-  changedBy     String
-  changeType    ChangeType
-  metadata      Json?    @db.JsonB
-  
-  createdAt     DateTime @default(now())
-
-  // Relations
-  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-
-  @@index([documentId])
-  @@map("document_history")
-}
-
 enum ChangeType {
   CREATED
   UPDATED
@@ -251,90 +402,9 @@ enum ChangeType {
   MOVED
 }
 
-model Embedding {
-  id            String   @id @default(uuid())
-  documentId    String
-  chunkIndex    Int
-  chunkText     String   @db.Text
-  vector        Unsupported("vector(1536)")?
-  metadata      Json?    @db.JsonB
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  document      Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-
-  @@index([documentId])
-  @@map("embeddings")
-}
-
-model RefreshToken {
-  id            String   @id @default(uuid())
-  userId        String
-  token         String   @unique
-  expiresAt     DateTime
-  isRevoked     Boolean  @default(false)
-  
-  createdAt     DateTime @default(now())
-
-  // Relations
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@index([token])
-  @@map("refresh_tokens")
-}
-
-model SubscriptionPlan {
-  id            String   @id @default(uuid())
-  name          String   @unique
-  displayName   String
-  description   String?
-  price         Decimal  @db.Decimal(10, 2)
-  currency      String   @default("USD")
-  interval      BillingInterval
-  features      Json     @db.JsonB
-  limits        Json     @db.JsonB // storage, users, documents
-  isActive      Boolean  @default(true)
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  tenants       Tenant[]
-  paymentRecords PaymentRecord[]
-
-  @@map("subscription_plans")
-}
-
 enum BillingInterval {
   MONTHLY
   YEARLY
-}
-
-model PaymentRecord {
-  id            String   @id @default(uuid())
-  tenantId      String
-  planId        String
-  amount        Decimal  @db.Decimal(10, 2)
-  currency      String   @default("USD")
-  status        PaymentStatus @default(PENDING)
-  paymentMethod String?
-  transactionId String?  @unique
-  metadata      Json?    @db.JsonB
-  paidAt        DateTime?
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  plan          SubscriptionPlan @relation(fields: [planId], references: [id])
-
-  @@index([tenantId])
-  @@index([status])
-  @@map("payment_records")
 }
 
 enum PaymentStatus {
@@ -344,73 +414,141 @@ enum PaymentStatus {
   REFUNDED
 }
 
-model AuditLog {
-  id            String   @id @default(uuid())
-  tenantId      String
-  userId        String?
-  action        String
-  resource      String
-  resourceId    String?
-  ipAddress     String?
-  userAgent     String?
-  metadata      Json?    @db.JsonB
+enum LoginStatus {
+  SUCCESS
+  FAILED
+  BLOCKED
+}
+
+model FolderTemplate {
+  id          String              @id @default(uuid())
+  name        String              // Template name
+  industry    String              // Industry this template is for
+  description String?             // Description of the template
+  isActive    Boolean             @default(true)  // Whether the template is available
+  isSystem    Boolean             @default(false) // Whether this is a system template
+  metadata    Json?               // Additional template metadata
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
   
-  createdAt     DateTime @default(now())
+  // Template nodes (the folder structure)
+  nodes       FolderTemplateNode[]
+  
+  @@map("folder_templates")
+}
 
+model FolderTemplateNode {
+  id            String             @id @default(uuid())
+  templateId    String
+  name          String             // Folder name (may include placeholders like {City}, {ClientName})
+  parentId      String?            // Parent node ID for hierarchy
+  level         Int                // Depth level in the tree
+  position      Int                // Position for ordering siblings
+  isPlaceholder Boolean            @default(false) // Whether this node contains dynamic placeholders
+  metadata      Json?              // Additional node metadata
+  createdAt     DateTime           @default(now())
+  
   // Relations
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  template      FolderTemplate     @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  parent        FolderTemplateNode?  @relation("TemplateNodeHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children      FolderTemplateNode[] @relation("TemplateNodeHierarchy")
+  
+  @@index([templateId])
+  @@index([parentId])
+  @@index([level])
+  @@index([position])
+  @@map("folder_template_nodes")
+}
 
-  @@index([tenantId])
+model Notification {
+  id         String              @id @default(uuid())
+  userId     String?
+  tenantId   String?
+  type       String
+  title      String
+  message    String
+  data       Json?
+  priority   String              @default("MEDIUM") // LOW, MEDIUM, HIGH
+  isUrgent   Boolean             @default(false)
+  status     NotificationStatus  @default(UNREAD)
+  readAt     DateTime?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  user       User?               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant     Tenant?             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  
   @@index([userId])
-  @@index([resource, resourceId])
-  @@index([createdAt])
-  @@map("audit_logs")
-}
-
-// Feature Slider Slides Model
-model FeatureSliderSlide {
-  id            String   @id @default(uuid())
-  tenantId      String
-  title         String
-  description   String
-  icon          String
-  imageUrl      String?
-  enabled       Boolean  @default(true)
-  order         Int
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-
   @@index([tenantId])
-  @@index([order])
-  @@index([enabled])
-  @@map("feature_slider_slides")
+  @@index([type])
+  @@index([status])
+  @@index([isUrgent])
+  @@index([createdAt])
+  @@map("notifications")
 }
 
-// OTP Verification Model
-model OtpVerification {
-  id            String   @id @default(uuid())
-  email         String
-  otp           String
-  hashedOtp     String
-  expiresAt     DateTime
-  verificationToken String @unique
-  isUsed        Boolean  @default(false)
-  tenantId      String?
-  userType      String   // 'tenant' or 'user'
-  payload       Json     @db.JsonB // Stores registration data temporarily
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+enum NotificationStatus {
+  UNREAD
+  READ
+  ARCHIVED
+}
 
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+model SupportTicket {
+  id               String             @id @default(uuid())
+  title            String
+  description      String
+  status           TicketStatus       @default(OPEN)
+  priority         TicketPriority     @default(MEDIUM)
+  tenantId         String
+  createdBy        String             // userId of the person who created the ticket
+  assignedTo       String?            // userId of admin assigned to the ticket
+  resolvedBy       String?            // userId of admin who resolved the ticket
+  resolvedAt       DateTime?
+  resolutionNotes  String?
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+  deletedAt      DateTime?
+  
   // Relations
-  tenant        Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  tenant           Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdByUser    User               @relation("SupportTicketCreatedBy", fields: [createdBy], references: [id])
+  assignedToUser   User?              @relation("SupportTicketAssignedTo", fields: [assignedTo], references: [id])
+  resolvedByUser   User?              @relation("SupportTicketResolvedBy", fields: [resolvedBy], references: [id])
+  comments         SupportTicketComment[]
+  
+  @@index([tenantId])
+  @@index([createdBy])
+  @@index([assignedTo])
+  @@index([status])
+  @@index([priority])
+  @@index([resolvedBy])
+  @@map("support_tickets")
+}
 
-  @@index([email])
-  @@index([verificationToken])
-  @@index([expiresAt])
-  @@index([isUsed])
-  @@map("otp_verifications")
+model SupportTicketComment {
+  id         String   @id @default(uuid())
+  ticketId   String
+  comment    String
+  createdBy  String   // userId of the person who made the comment
+  createdAt  DateTime @default(now())
+  
+  // Relations
+  ticket     SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  createdByUser User @relation("SupportTicketCommentCreated", fields: [createdBy], references: [id])
+  
+  @@index([ticketId])
+  @@index([createdBy])
+  @@map("support_ticket_comments")
 }

@@ -245,7 +245,46 @@ async function seed() {
     });
 
     logger.info('✅ Created admin user: admin@demo.com / Admin@123');
+    
+    // Create master admin user for the admin panel
+    logger.info('Creating master admin user...');
+    const masterAdminPassword = await hashPassword('Master@123');
+    const masterAdminUser = await prisma.user.upsert({
+      where: {
+        tenantId_email: {
+          tenantId: tenant.id,
+          email: 'master@admin.com',
+        },
+      },
+      update: {},
+      create: {
+        tenantId: tenant.id,
+        email: 'master@admin.com',
+        password: masterAdminPassword,
+        firstName: 'Master',
+        lastName: 'Admin',
+        status: 'ACTIVE',
+        emailVerified: true,
+      },
+    });
 
+    // Assign SUPER_ADMIN role to master admin user
+    await prisma.userRole.upsert({
+      where: {
+        userId_roleId: {
+          userId: masterAdminUser.id,
+          roleId: superAdminRole.id,
+        },
+      },
+      update: {},
+      create: {
+        userId: masterAdminUser.id,
+        roleId: superAdminRole.id,
+      },
+    });
+
+    logger.info('✅ Created master admin user: master@admin.com / Master@123');
+    
     // Create subscription plans
     logger.info('Creating subscription plans...');
     await Promise.all([

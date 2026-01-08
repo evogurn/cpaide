@@ -21,7 +21,7 @@ class TextExtractor {
       text: 'Sample extracted text from document...',
       pageCount: 1,
       metadata: {
-        mimeType,
+        mimeType, 
         extractedAt: new Date().toISOString(),
       },
     };

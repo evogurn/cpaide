@@ -41,7 +41,17 @@ class AuthController {
       const { email, password } = req.body;
       const tenantId = req.tenantId || req.body.tenantId;
       
-      const result = await authService.login({ email, password, tenantId });
+      // Get IP address and user agent from request
+      const ipAddress = req.ip || req.connection.remoteAddress || req.socket.remoteAddress || (req.headers['x-forwarded-for'] ? req.headers['x-forwarded-for'].split(',')[0] : null);
+      const userAgent = req.get('User-Agent');
+      
+      const result = await authService.login({ 
+        email, 
+        password, 
+        tenantId, 
+        ipAddress, 
+        userAgent 
+      });
       
       // Set refresh token in HTTP-only cookie
       res.cookie('refreshToken', result.refreshToken, {

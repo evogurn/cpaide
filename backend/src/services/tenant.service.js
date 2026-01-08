@@ -7,8 +7,6 @@ class TenantService {
    * Create a new tenant
    */
   async createTenant(data) {
-    console.log('Creating tenant with data:', data);
-    
     // Check if subdomain exists
     const existing = await prisma.tenant.findUnique({
       where: { subdomain: data.subdomain },
@@ -25,10 +23,9 @@ class TenantService {
       data: {
         ...data,
         status: 'ACTIVE',
+        approvalStatus: data.approvalStatus || 'APPROVED', // Default to APPROVED if not specified
       },
     });
-    
-    console.log('Created tenant:', tenant);
 
     // Initialize default feature slider slides for the new tenant
     try {
@@ -38,58 +35,7 @@ class TenantService {
       // Don't throw error as this shouldn't prevent tenant creation
     }
 
-    // Initialize folders from template
-    try {
-      console.log('Initializing folders from template for tenant:', tenant.id);
-      await this.initializeFoldersFromTemplate(tenant.id);
-      console.log('Finished initializing folders from template for tenant:', tenant.id);
-    } catch (error) {
-      console.error('Failed to initialize folders from template:', error);
-      // Don't throw error as this shouldn't prevent tenant creation
-    }
-
     return tenant;
-  }
-
-  /**
-   * Initialize folders from template for a tenant
-   */
-  async initializeFoldersFromTemplate(tenantId) {
-    console.log('Getting folder template for tenant:', tenantId);
-    const template = await this.getFolderTemplate(tenantId);
-    console.log('Folder template for tenant:', tenantId, JSON.stringify(template, null, 2));
-    
-    // Create folders from template
-    const createFolders = async (folderTemplate, parentId = null, parentPath = '') => {
-      for (const folderData of folderTemplate) {
-        const folderPath = parentPath ? `${parentPath}/${folderData.name}` : `/${folderData.name}`;
-        
-        try {
-          console.log('Creating folder:', { tenantId, name: folderData.name, parentId, path: folderPath });
-          // Create folder
-          const folder = await prisma.folder.create({
-            data: {
-              tenantId,
-              name: folderData.name,
-              parentId,
-              path: folderPath,
-              ownerId: null, // Will be set when user is created
-            },
-          });
-          console.log('Created folder:', folder);
-
-          // Recursively create children
-          if (folderData.children && folderData.children.length > 0) {
-            await createFolders(folderData.children, folder.id, folderPath);
-          }
-        } catch (error) {
-          console.error(`Failed to create folder ${folderData.name}:`, error);
-          throw error;
-        }
-      }
-    };
-
-    await createFolders(template);
   }
 
   /**
@@ -110,7 +56,7 @@ class TenantService {
       },
     });
 
-    if (!tenant) {
+    if (!tenant || tenant.deletedAt) {
       const error = new Error('Tenant not found');
       error.statusCode = HTTP_STATUS.NOT_FOUND;
       error.code = ERROR_CODES.NOT_FOUND;
@@ -121,13 +67,41 @@ class TenantService {
   }
 
   /**
-   * List tenants
+   * Get tenant by subdomain
+   */
+  async getTenantBySubdomain(subdomain) {
+    const tenant = await prisma.tenant.findUnique({
+      where: { subdomain },
+    });
+
+    if (!tenant || tenant.deletedAt) {
+      const error = new Error('Tenant not found');
+      error.statusCode = HTTP_STATUS.NOT_FOUND;
+      error.code = ERROR_CODES.NOT_FOUND;
+      throw error;
+    }
+
+    return tenant;
+  }
+
+  /**
+   * Update tenant
+   */
+  async updateTenant(id, data) {
+    const tenant = await prisma.tenant.update({
+      where: { id },
+      data,
+    });
+
+    return tenant;
+  }
+
+  /**
+   * List all tenants
    */
   async listTenants({ page = 1, limit = 10, status }) {
-    const where = {};
-    if (status) {
-      where.status = status;
-    }
+    const where = { deletedAt: null };
+    if (status) where.status = status;
 
     const [tenants, total] = await Promise.all([
       prisma.tenant.findMany({
@@ -138,11 +112,7 @@ class TenantService {
         include: {
           subscriptionPlan: true,
           _count: {
-            select: {
-              users: true,
-              documents: true,
-              folders: true,
-            },
+            select: { users: true, documents: true },
           },
         },
       }),
@@ -153,250 +123,48 @@ class TenantService {
   }
 
   /**
-   * Update tenant
+   * Delete tenant (soft delete)
    */
-  async updateTenant(id, data) {
-    // Prevent updating critical fields
-    const { id: _, createdAt: __, updatedAt: ___, ...updateData } = data;
-
+  async deleteTenant(id) {
     const tenant = await prisma.tenant.update({
       where: { id },
-      data: updateData,
-      include: {
-        subscriptionPlan: true,
-        _count: {
-          select: {
-            users: true,
-            documents: true,
-            folders: true,
-          },
-        },
-      },
+      data: { deletedAt: new Date() },
     });
 
     return tenant;
   }
 
   /**
-   * Delete tenant (soft delete)
-   */
-  async deleteTenant(id) {
-    await prisma.tenant.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
-  }
-
-  /**
-   * Get folder template for tenant
-   */
-  async getFolderTemplate(tenantId) {
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
-
-    if (!tenant) {
-      const error = new Error('Tenant not found');
-      error.statusCode = HTTP_STATUS.NOT_FOUND;
-      error.code = ERROR_CODES.NOT_FOUND;
-      throw error;
-    }
-
-    // Return folder template from settings or default template
-    const defaultTemplate = [
-      {
-        "id": "city",
-        "name": "City",
-        "children": [
-          {
-            "id": "community",
-            "name": "Community",
-            "children": [
-              {
-                "id": "lot-27",
-                "name": "Lot 27",
-                "children": [
-                  {
-                    "id": "custom",
-                    "name": "Custom",
-                    "children": [
-                      {
-                        "id": "site-survey",
-                        "name": "Site Survey",
-                        "children": []
-                      },
-                      {
-                        "id": "floor-plan",
-                        "name": "Floor Plan",
-                        "children": []
-                      },
-                      {
-                        "id": "hvac",
-                        "name": "HVAC",
-                        "children": []
-                      },
-                      {
-                        "id": "buyer-docs",
-                        "name": "Buyer Docs",
-                        "children": []
-                      },
-                      {
-                        "id": "invoices",
-                        "name": "Invoices",
-                        "children": []
-                      },
-                      {
-                        "id": "specifications",
-                        "name": "Specifications",
-                        "children": []
-                      },
-                      {
-                        "id": "warranty",
-                        "name": "Warranty",
-                        "children": []
-                      },
-                      {
-                        "id": "inspection-reports",
-                        "name": "Inspection Reports",
-                        "children": []
-                      },
-                      {
-                        "id": "photos",
-                        "name": "Photos",
-                        "children": []
-                      },
-                      {
-                        "id": "contracts",
-                        "name": "Contracts",
-                        "children": []
-                      },
-                      {
-                        "id": "selections",
-                        "name": "Selections",
-                        "children": []
-                      }
-                    ]
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    ];
-
-    return tenant.settings?.folderTemplate || defaultTemplate;
-  }
-
-  /**
-   * Update folder template for tenant
-   */
-  async updateFolderTemplate(tenantId, template) {
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
-
-    if (!tenant) {
-      const error = new Error('Tenant not found');
-      error.statusCode = HTTP_STATUS.NOT_FOUND;
-      error.code = ERROR_CODES.NOT_FOUND;
-      throw error;
-    }
-
-    // Validate template structure
-    if (!Array.isArray(template)) {
-      const error = new Error('Invalid folder template format');
-      error.statusCode = HTTP_STATUS.BAD_REQUEST;
-      error.code = ERROR_CODES.BAD_REQUEST;
-      throw error;
-    }
-
-    // Update tenant settings with new folder template
-    const updatedTenant = await prisma.tenant.update({
-      where: { id: tenantId },
-      data: {
-        settings: {
-          ...tenant.settings,
-          folderTemplate: template
-        }
-      }
-    });
-
-    return updatedTenant.settings.folderTemplate;
-  }
-  
-  /**
-   * Initialize folders for existing tenant (if they don't exist)
-   */
-  async initializeFoldersForExistingTenant(tenantId) {
-    // Check if folders already exist for this tenant
-    const existingFolders = await prisma.folder.findMany({
-      where: { tenantId, deletedAt: null },
-      take: 1
-    });
-    
-    // If no folders exist, initialize them
-    if (existingFolders.length === 0) {
-      console.log('No existing folders found for tenant, initializing from template:', tenantId);
-      await this.initializeFoldersFromTemplate(tenantId);
-      return true;
-    }
-    
-    console.log('Folders already exist for tenant, skipping initialization:', tenantId);
-    return false;
-  }
-
-  /**
-   * Get project label for tenant from settings
-   * @param {string} tenantId - The tenant ID
-   * @returns {Promise<string>} The project label
+   * Get project label for a tenant
    */
   async getProjectLabel(tenantId) {
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
-
-    if (!tenant) {
-      const error = new Error('Tenant not found');
-      error.statusCode = HTTP_STATUS.NOT_FOUND;
-      error.code = ERROR_CODES.NOT_FOUND;
-      throw error;
-    }
-
-    // Return project label from settings or default value
-    return tenant.settings?.projectLabel || 'Project';
+    const tenant = await this.getTenantById(tenantId);
+    return tenant.settings?.projectLabel || 'Total Projects';
   }
 
   /**
-   * Update project label for tenant in settings
-   * @param {string} tenantId - The tenant ID
-   * @param {string} label - The new project label
-   * @returns {Promise<string>} The updated project label
+   * Update project label for a tenant
    */
   async updateProjectLabel(tenantId, label) {
-    const tenant = await prisma.tenant.findUnique({
-      where: { id: tenantId },
-    });
-
-    if (!tenant) {
-      const error = new Error('Tenant not found');
-      error.statusCode = HTTP_STATUS.NOT_FOUND;
-      error.code = ERROR_CODES.NOT_FOUND;
+    // Validate label - allow empty string to reset to default
+    if (typeof label !== 'string') {
+      const error = new Error('Project label must be a string');
+      error.statusCode = HTTP_STATUS.BAD_REQUEST;
       throw error;
     }
 
+    // Get current tenant settings
+    const currentTenant = await this.getTenantById(tenantId);
+
     // Update tenant settings with new project label
-    const updatedTenant = await prisma.tenant.update({
-      where: { id: tenantId },
-      data: {
-        settings: {
-          ...tenant.settings,
-          projectLabel: label
-        }
+    const updatedTenant = await this.updateTenant(tenantId, {
+      settings: {
+        ...currentTenant.settings,
+        projectLabel: label.trim()
       }
     });
 
-    return updatedTenant.settings.projectLabel;
+    return label.trim();
   }
 }
 

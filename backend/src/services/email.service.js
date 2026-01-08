@@ -1,36 +1,86 @@
 import nodemailer from 'nodemailer';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { logger } from '../config/logger.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 /**
- * Email service - nodemailer integration
+ * Email service - nodemailer integration with template system
  */
 class EmailService {
   constructor() {
     // Create transporter
     this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.ethereal.email',
+      host: process.env.SMTP_HOST,
       port: process.env.SMTP_PORT || 587,
       secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
       auth: {
-        user: process.env.SMTP_USER || 'your@email.com',
-        pass: process.env.SMTP_PASSWORD || 'your_password',
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASSWORD,
       },
     });
   }
 
   /**
+   * Load email template from file
+   */
+  loadTemplate(templateName) {
+    const templatePath = path.join(__dirname, '../templates', `${templateName}.html`);
+    try {
+      return fs.readFileSync(templatePath, 'utf8');
+    } catch (error) {
+      logger.warn(`Template ${templateName} not found, using default template`);
+      return null;
+    }
+  }
+
+  /**
+   * Replace template variables
+   */
+  replaceTemplateVariables(template, variables) {
+    let processedTemplate = template;
+    for (const [key, value] of Object.entries(variables)) {
+      processedTemplate = processedTemplate.replace(new RegExp(`{{${key}}}`, 'g'), value);
+    }
+    return processedTemplate;
+  }
+
+  /**
    * Send email
    */
-  async sendEmail({ to, subject, html, text }) {
-    logger.info('Sending email:', { to, subject });
+  async sendEmail({ to, subject, html, text, templateName, templateVariables = {} }) {
+    let finalHtml = html;
+    let finalText = text;
+
+    // If template name is provided, load and process the template
+    if (templateName) {
+      const template = this.loadTemplate(templateName);
+      console.log(`Template ${templateName} loaded: ${!!template}`);
+      if (template) {
+        finalHtml = this.replaceTemplateVariables(template, templateVariables);
+      } else {
+        console.error(`Template ${templateName} not found`);
+      }
+    }
+
+    console.log('Sending email:', { to, subject });
+    
+    // Validate SMTP configuration
+    if (!process.env.SMTP_HOST || !process.env.SMTP_USER || !process.env.SMTP_PASSWORD || !process.env.SMTP_FROM) {
+      console.error('Missing SMTP configuration');
+      return { success: false, error: 'Missing SMTP configuration' };
+    }
     
     try {
       const info = await this.transporter.sendMail({
-        from: process.env.SMTP_FROM || '"CPAide" <no-reply@cpaide.com>',
+        from: process.env.SMTP_FROM,
         to,
         subject,
-        html,
-        text,
+        html: finalHtml,
+        text: finalText || finalHtml.replace(/<[^>]*>/g, ''), // Generate text version from HTML if not provided
       });
       
       logger.info('Email sent successfully:', { messageId: info.messageId });
@@ -42,21 +92,22 @@ class EmailService {
   }
 
   /**
-   * Send welcome email
+   * Send welcome email to tenant
    */
-  async sendWelcomeEmail(user) {
-    const subject = 'Welcome to CPAide';
-    const html = `
-      <h1>Welcome ${user.firstName}!</h1>
-      <p>Thank you for joining CPAide Document Management System.</p>
-    `;
-    const text = `Welcome ${user.firstName}! Thank you for joining CPAide.`;
-    
+  async sendWelcomeEmail(user, tenant) {
+    const subject = 'Welcome to CPAide - Your Account is Ready!';
+    const templateVariables = {
+      firstName: user.firstName,
+      tenantName: tenant.name,
+      loginUrl: `${process.env.CORS_ORIGIN}/login`,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@cpaide.com'
+    };
+
     return this.sendEmail({
       to: user.email,
       subject,
-      html,
-      text,
+      templateName: 'welcome',
+      templateVariables,
     });
   }
 
@@ -65,63 +116,193 @@ class EmailService {
    */
   async sendPasswordResetEmail(user, resetToken) {
     const subject = 'Password Reset Request';
-    const html = `
-      <h1>Password Reset</h1>
-      <p>Click the link below to reset your password:</p>
-      <a href="${process.env.CORS_ORIGIN}/reset-password?token=${resetToken}">Reset Password</a>
-    `;
-    const text = `Password reset link: ${process.env.CORS_ORIGIN}/reset-password?token=${resetToken}`;
-    
+    const templateVariables = {
+      firstName: user.firstName,
+      resetUrl: `${process.env.CORS_ORIGIN}/reset-password?token=${resetToken}`,
+      expiryTime: '5 minutes',
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@cpaide.com'
+    };
+
     return this.sendEmail({
       to: user.email,
       subject,
-      html,
-      text,
+      templateName: 'password-reset',
+      templateVariables,
     });
   }
 
   /**
    * Send OTP verification email
    */
-  async sendOtpEmail({ email, otp, userType }) {
+  async sendOtpEmail({ email, otp, userType, firstName = '' }) {
     const subject = 'Email Verification - CPAide';
-    
-    const html = `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #3b82f6;">Email Verification</h2>
-        <p>Hello,</p>
-        <p>Thank you for registering with CPAide. Please use the following OTP code to verify your email address:</p>
-        <div style="background-color: #f3f4f6; padding: 20px; text-align: center; border-radius: 8px; margin: 20px 0;">
-          <h1 style="font-size: 32px; letter-spacing: 8px; color: #1f2937;">${otp}</h1>
-        </div>
-        <p>This code will expire in 5 minutes.</p>
-        <p>If you didn't request this verification, please ignore this email.</p>
-        <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
-        <p style="font-size: 12px; color: #6b7280;">
-          This email was sent to ${email} because someone attempted to register for a ${userType === 'tenant' ? 'tenant organization' : 'user account'} at CPAide.
-        </p>
-      </div>
-    `;
-    
-    const text = `
-Email Verification - CPAide
+    const templateVariables = {
+      firstName: firstName,
+      otp: otp,
+      expiryTime: '5 minutes',
+      userType: userType === 'tenant' ? 'tenant organization' : 'user account',
+      email: email,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@cpaide.com'
+    };
 
-Hello,
-
-Thank you for registering with CPAide. Please use the following OTP code to verify your email address:
-
-${otp}
-
-This code will expire in 5 minutes.
-
-If you didn't request this verification, please ignore this email.
-    `;
-    
     return this.sendEmail({
       to: email,
       subject,
-      html,
-      text,
+      templateName: 'otp-verification',
+      templateVariables,
+    });
+  }
+
+  /**
+   * Send notification to master admin about new tenant registration
+   */
+  async sendNewTenantNotification(tenant, adminEmail) {
+    const subject = 'New Tenant Registration - Approval Required';
+    const templateVariables = {
+      tenantName: tenant.name,
+      adminName: 'Master Admin',
+      tenantEmail: tenant.adminEmail || 'N/A',
+      registrationDate: new Date().toLocaleDateString(),
+      adminPanelUrl: `${process.env.CORS_ORIGIN}/cpaide/admin`,
+      tenantId: tenant.id
+    };
+
+    return this.sendEmail({
+      to: adminEmail,
+      subject,
+      templateName: 'new-tenant-notification',
+      templateVariables,
+    });
+  }
+
+  /**
+   * Send tenant approval notification
+   */
+  async sendTenantApprovalNotification(tenant, adminUser) {
+    const subject = 'Your CPAide Account Has Been Approved!';
+    const templateVariables = {
+      firstName: tenant.adminFirstName || 'User',
+      tenantName: tenant.name,
+      loginUrl: `${process.env.CORS_ORIGIN}/login`,
+      adminName: `${adminUser.firstName} ${adminUser.lastName}`,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@cpaide.com'
+    };
+
+    return this.sendEmail({
+      to: tenant.adminEmail,
+      subject,
+      templateName: 'tenant-approved',
+      templateVariables,
+    });
+  }
+
+  /**
+   * Send tenant rejection notification
+   */
+  async sendTenantRejectionNotification(tenant, adminUser, reason = 'Administrative review') {
+    const subject = 'CPAide Account Registration Status - Action Required';
+    const templateVariables = {
+      firstName: tenant.adminFirstName || 'User',
+      tenantName: tenant.name,
+      rejectionReason: reason,
+      adminName: `${adminUser.firstName} ${adminUser.lastName}`,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@cpaide.com'
+    };
+
+    return this.sendEmail({
+      to: tenant.adminEmail,
+      subject,
+      templateName: 'tenant-rejected',
+      templateVariables,
+    });
+  }
+
+  /**
+   * Send support ticket notification
+   */
+  async sendSupportTicketNotification(ticket, recipientEmail, type = 'new') {
+    const subject = type === 'new' 
+      ? 'New Support Ticket Created' 
+      : 'Support Ticket Updated';
+    
+    const templateVariables = {
+      ticketId: ticket.id,
+      ticketTitle: ticket.title,
+      ticketDescription: ticket.description,
+      ticketStatus: ticket.status,
+      ticketPriority: ticket.priority,
+      ticketUrl: `${process.env.CORS_ORIGIN}/support/ticket/${ticket.id}`,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@cpaide.com'
+    };
+
+    return this.sendEmail({
+      to: recipientEmail,
+      subject,
+      templateName: type === 'new' ? 'support-ticket-created' : 'support-ticket-updated',
+      templateVariables,
+    });
+  }
+
+  /**
+   * Send support ticket resolution notification
+   */
+  async sendSupportTicketResolutionNotification(ticket, recipientEmail) {
+    const subject = 'Support Ticket Resolved';
+    const templateVariables = {
+      ticketId: ticket.id,
+      ticketTitle: ticket.title,
+      resolutionNotes: ticket.resolutionNotes || 'N/A',
+      ticketUrl: `${process.env.CORS_ORIGIN}/support/ticket/${ticket.id}`,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@cpaide.com'
+    };
+
+    return this.sendEmail({
+      to: recipientEmail,
+      subject,
+      templateName: 'support-ticket-resolved',
+      templateVariables,
+    });
+  }
+
+  /**
+   * Send billing notification
+   */
+  async sendBillingNotification(tenant, user, type, amount, planName) {
+    let subject = '';
+    let templateName = '';
+
+    switch(type) {
+      case 'payment_success':
+        subject = 'Payment Received Successfully';
+        templateName = 'billing-payment-success';
+        break;
+      case 'payment_failed':
+        subject = 'Payment Failed - Action Required';
+        templateName = 'billing-payment-failed';
+        break;
+      case 'subscription_updated':
+        subject = 'Subscription Plan Updated';
+        templateName = 'billing-payment-success'; // Using the same template for now
+        break;
+      default:
+        subject = 'Billing Notification';
+        templateName = 'billing-payment-success';
+    }
+
+    const templateVariables = {
+      firstName: user.firstName,
+      tenantName: tenant.name,
+      amount: amount,
+      planName: planName,
+      billingUrl: `${process.env.CORS_ORIGIN}/billing`,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@cpaide.com'
+    };
+
+    return this.sendEmail({
+      to: user.email,
+      subject,
+      templateName,
+      templateVariables,
     });
   }
 }

@@ -2,7 +2,7 @@ import express from 'express';
 import documentController from '../controllers/document.controller.js';
 import { authenticate } from '../middlewares/auth.js';
 import { validateRequest } from '../middlewares/validate.js';
-import { uploadDocumentSchema, updateDocumentSchema, moveDocumentSchema } from '../validations/document.validation.js';
+import { uploadDocumentSchema, updateDocumentSchema, moveDocumentSchema, renameDocumentSchema } from '../validations/document.validation.js';
 import { requirePermission } from '../middlewares/rbac.js';
 import { PERMISSIONS } from '../constants/index.js';
 import { uploadLimiter } from '../middlewares/rateLimiter.js';
@@ -57,6 +57,13 @@ router.patch(
   validateRequest(updateDocumentSchema),
   requirePermission([PERMISSIONS.DOCUMENT_UPDATE]),
   documentController.updateDocument
+);
+
+router.patch(
+  '/:id/rename',
+  validateRequest(renameDocumentSchema),
+  requirePermission([PERMISSIONS.DOCUMENT_UPDATE]),
+  documentController.renameDocument
 );
 
 router.post(

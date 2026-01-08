@@ -208,6 +208,71 @@ class DocumentService {
   }
 
   /**
+   * Rename document
+   */
+  async renameDocument(id, tenantId, name) {
+    const document = await prisma.document.findFirst({
+      where: { id, tenantId, deletedAt: null },
+    });
+
+    if (!document) {
+      const error = new Error('Document not found');
+      error.statusCode = HTTP_STATUS.NOT_FOUND;
+      error.code = ERROR_CODES.NOT_FOUND;
+      throw error;
+    }
+
+    if (name && name !== document.name) {
+      // Check for duplicate name in the same folder
+      if (document.folderId) {
+        const duplicateDocument = await prisma.document.findFirst({
+          where: {
+            folderId: document.folderId,
+            name: name,
+            id: { not: id },
+            tenantId,
+            deletedAt: null,
+          },
+        });
+
+        if (duplicateDocument) {
+          const error = new Error('A document with this name already exists in the folder');
+          error.statusCode = HTTP_STATUS.CONFLICT;
+          error.code = ERROR_CODES.VALIDATION_ERROR;
+          throw error;
+        }
+      } else {
+        // Check for duplicate in root (no folder)
+        const duplicateDocument = await prisma.document.findFirst({
+          where: {
+            folderId: null,
+            name: name,
+            id: { not: id },
+            tenantId,
+            deletedAt: null,
+          },
+        });
+
+        if (duplicateDocument) {
+          const error = new Error('A document with this name already exists');
+          error.statusCode = HTTP_STATUS.CONFLICT;
+          error.code = ERROR_CODES.VALIDATION_ERROR;
+          throw error;
+        }
+      }
+
+      const updated = await prisma.document.update({
+        where: { id },
+        data: { name },
+      });
+
+      return updated;
+    }
+
+    return document; // Return unchanged if no rename needed
+  }
+
+  /**
    * Move document to another folder
    */
   async moveDocument(id, tenantId, targetFolderId) {

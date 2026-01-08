@@ -44,6 +44,36 @@ export const formatFileSize = (bytes) => {
 /**
  * Get storage key (S3 path)
  */
-export const getStorageKey = (tenantId, filename) => {
-  return `tenants/${tenantId}/documents/${filename}`;
+export const getStorageKey = (tenantId, filename, documentId, fileType = 'raw') => {
+  // Map file types to their appropriate S3 paths
+  const filePaths = {
+    raw: `tenants/${tenantId}/documents/raw/${documentId}/${filename}`,
+    extracted: `tenants/${tenantId}/documents/extracted/${documentId}/${filename}.txt`,
+    chunk: `tenants/${tenantId}/documents/chunks/${documentId}/chunk_${Date.now()}.json`,
+    embedding: `tenants/${tenantId}/documents/embeddings/${documentId}/embedding_${Date.now()}.json`,
+    metadata: `tenants/${tenantId}/documents/raw/${documentId}/metadata.json`
+  };
+  
+  return filePaths[fileType] || filePaths.raw;
+};
+
+/**
+ * Get tenant-specific prefix for bulk operations
+ */
+export const getTenantPrefix = (tenantId) => {
+  return `tenants/${tenantId}/`;
+};
+
+/**
+ * Get document-specific prefix
+ */
+export const getDocumentPrefix = (tenantId, documentId) => {
+  return `tenants/${tenantId}/documents/raw/${documentId}/`;
+};
+
+/**
+ * Get processing stage-specific prefix
+ */
+export const getProcessingPrefix = (tenantId, documentId, stage) => {
+  return `tenants/${tenantId}/documents/${stage}/${documentId}/`;
 };

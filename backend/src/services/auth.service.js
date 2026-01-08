@@ -87,10 +87,11 @@ class AuthService {
         .replace(/^-+|-+$/g, '')
         .substring(0, 63);
 
-      // Create tenant
+      // Create tenant with PENDING approval status
       const tenant = await tenantService.createTenant({
         name: tenantName,
         subdomain,
+        approvalStatus: 'PENDING', // New tenants require admin approval
       });
 
       // Hash admin password
@@ -151,33 +152,163 @@ class AuthService {
   /**
    * Login user
    */
-  async login({ email, password, tenantId }) {
+  async login({ email, password, tenantId, ipAddress, userAgent }) {
     // Find user
-    const user = await prisma.user.findFirst({
-      where: {
-        email,
-        tenantId,
-        deletedAt: null,
-      },
-      include: {
-        tenant: true,
-        userRoles: {
-          include: {
-            role: true,
+    // In a multi-tenant system, we need to find the user within the specified tenant
+    // If no tenantId is provided, we might need to look up which tenant the user belongs to
+    let user;
+    
+    if (tenantId) {
+      // If tenantId is provided, search within that tenant
+      user = await prisma.user.findFirst({
+        where: {
+          email,
+          tenantId,
+          deletedAt: null,
+        },
+        include: {
+          tenant: {
+            include: {
+              subscriptionPlan: true,
+            },
+          },
+          userRoles: {
+            include: {
+              role: true,
+            },
           },
         },
-      },
-    });
+      });
+    } else {
+      // If no tenantId provided, find user by email across all tenants
+      user = await prisma.user.findFirst({
+        where: {
+          email,
+          deletedAt: null,
+        },
+        include: {
+          tenant: {
+            include: {
+              subscriptionPlan: true,
+            },
+          },
+          userRoles: {
+            include: {
+              role: true,
+            },
+          },
+        },
+      });
+    }
+
+    let loginStatus = 'SUCCESS';
+    let failureReason = null;
 
     if (!user) {
+      loginStatus = 'FAILED';
+      failureReason = 'Invalid credentials';
+      
+      // Record failed login attempt
+      try {
+        await prisma.loginHistory.create({
+          data: {
+            userId: null, // We don't know the userId
+            tenantId: tenantId || null, // Use null if tenantId is undefined
+            ipAddress,
+            userAgent,
+            loginStatus,
+            failureReason,
+          },
+        });
+      } catch (historyError) {
+        // If login history creation fails, log it but don't prevent the login failure
+        console.error('Failed to create login history record:', historyError);
+      }
+      
+      const error = new Error('Invalid credentials');
+      error.statusCode = HTTP_STATUS.UNAUTHORIZED;
+      error.code = ERROR_CODES.INVALID_CREDENTIALS;
+      throw error;
+    }
+    
+    // If tenantId was provided but user doesn't belong to that tenant
+    if (tenantId && user.tenantId !== tenantId) {
+      loginStatus = 'FAILED';
+      failureReason = 'Invalid credentials';
+      
+      // Record failed login attempt
+      try {
+        await prisma.loginHistory.create({
+          data: {
+            userId: user.id,
+            tenantId: tenantId || null, // Use the provided tenantId
+            ipAddress,
+            userAgent,
+            loginStatus,
+            failureReason,
+          },
+        });
+      } catch (historyError) {
+        // If login history creation fails, log it but don't prevent the login failure
+        console.error('Failed to create login history record:', historyError);
+      }
+      
       const error = new Error('Invalid credentials');
       error.statusCode = HTTP_STATUS.UNAUTHORIZED;
       error.code = ERROR_CODES.INVALID_CREDENTIALS;
       throw error;
     }
 
+    // Check tenant approval status
+    if (user.tenant.approvalStatus !== 'APPROVED') {
+      loginStatus = 'FAILED';
+      failureReason = 'Tenant account is pending admin approval';
+      
+      // Record failed login attempt
+      try {
+        await prisma.loginHistory.create({
+          data: {
+            userId: user.id,
+            tenantId: user.tenantId,
+            ipAddress,
+            userAgent,
+            loginStatus,
+            failureReason,
+          },
+        });
+      } catch (historyError) {
+        // If login history creation fails, log it but don't prevent the login failure
+        console.error('Failed to create login history record:', historyError);
+      }
+      
+      const error = new Error('Your account is pending admin approval. You will be notified once approved.');
+      error.statusCode = HTTP_STATUS.FORBIDDEN;
+      error.code = ERROR_CODES.FORBIDDEN;
+      throw error;
+    }
+
     // Check if user is active
     if (user.status !== 'ACTIVE') {
+      loginStatus = 'FAILED';
+      failureReason = 'Account is not active';
+      
+      // Record failed login attempt
+      try {
+        await prisma.loginHistory.create({
+          data: {
+            userId: user.id,
+            tenantId: user.tenantId,
+            ipAddress,
+            userAgent,
+            loginStatus,
+            failureReason,
+          },
+        });
+      } catch (historyError) {
+        // If login history creation fails, log it but don't prevent the login failure
+        console.error('Failed to create login history record:', historyError);
+      }
+      
       const error = new Error('Account is not active');
       error.statusCode = HTTP_STATUS.FORBIDDEN;
       error.code = ERROR_CODES.FORBIDDEN;
@@ -188,6 +319,26 @@ class AuthService {
     const isPasswordValid = await comparePassword(password, user.password);
 
     if (!isPasswordValid) {
+      loginStatus = 'FAILED';
+      failureReason = 'Invalid credentials';
+      
+      // Record failed login attempt
+      try {
+        await prisma.loginHistory.create({
+          data: {
+            userId: user.id,
+            tenantId: user.tenantId,
+            ipAddress,
+            userAgent,
+            loginStatus,
+            failureReason,
+          },
+        });
+      } catch (historyError) {
+        // If login history creation fails, log it but don't prevent the login failure
+        console.error('Failed to create login history record:', historyError);
+      }
+      
       const error = new Error('Invalid credentials');
       error.statusCode = HTTP_STATUS.UNAUTHORIZED;
       error.code = ERROR_CODES.INVALID_CREDENTIALS;
@@ -195,10 +346,31 @@ class AuthService {
     }
 
     // Update last login
-    await prisma.user.update({
-      where: { id: user.id },
-      data: { lastLoginAt: new Date() },
-    });
+    try {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: { lastLoginAt: new Date() },
+      });
+    } catch (updateError) {
+      // If updating last login fails, log it but continue with login
+      console.error('Failed to update last login time:', updateError);
+    }
+
+    // Record successful login
+    try {
+      await prisma.loginHistory.create({
+        data: {
+          userId: user.id,
+          tenantId: user.tenantId,
+          ipAddress,
+          userAgent,
+          loginStatus: 'SUCCESS',
+        },
+      });
+    } catch (historyError) {
+      // If login history creation fails, log it but continue with login
+      console.error('Failed to create login history record:', historyError);
+    }
 
     // Generate tokens
     const accessToken = createAccessToken({ userId: user.id, tenantId: user.tenantId });

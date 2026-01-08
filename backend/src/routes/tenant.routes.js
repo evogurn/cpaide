@@ -8,9 +8,13 @@ import { ROLES } from '../constants/index.js';
 
 const router = express.Router();
 
-// Only SUPER_ADMIN can manage tenants (except for creation which is now public)
+// Middleware for tenant management operations - SUPER_ADMIN required
 router.use((req, res, next) => {
-  if (req.method === 'POST' && req.path === '/') {
+  // Check if the request is for billing endpoints
+  if (req.path.startsWith('/billing')) {
+    // For billing endpoints, only authentication is required
+    authenticate(req, res, next);
+  } else if (req.method === 'POST' && req.path === '/') {
     // Allow public tenant creation
     next();
   } else {
@@ -18,7 +22,11 @@ router.use((req, res, next) => {
     authenticate(req, res, next);
   }
 }, (req, res, next) => {
-  if (req.method === 'POST' && req.path === '/') {
+  // Check if the request is for billing endpoints
+  if (req.path.startsWith('/billing')) {
+    // For billing endpoints, no role required - just authenticated user
+    next();
+  } else if (req.method === 'POST' && req.path === '/') {
     // Allow public tenant creation
     next();
   } else {
@@ -33,9 +41,9 @@ router.get('/:id', tenantController.getTenant);
 router.patch('/:id', validateRequest(updateTenantSchema), tenantController.updateTenant);
 router.delete('/:id', tenantController.deleteTenant);
 
-// Folder template and initialization routes
-router.get('/:id/folder-template', tenantController.getFolderTemplate);
-router.patch('/:id/folder-template', tenantController.updateFolderTemplate);
-router.post('/:id/initialize-folders', tenantController.initializeTenantFolders);
+// Billing routes - authenticated users can access their own billing info
+router.get('/billing', authenticate, tenantController.getTenantBillingInfo);
+router.get('/billing/plans', authenticate, tenantController.getPersonalizedBillingPlans);
+router.patch('/plan', authenticate, tenantController.updateTenantPlan);
 
 export default router;

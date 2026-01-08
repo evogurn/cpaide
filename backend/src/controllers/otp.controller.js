@@ -1,6 +1,7 @@
 import otpService from '../services/otp.service.js';
 import emailService from '../services/email.service.js';
 import authService from '../services/auth.service.js';
+import notificationService from '../services/notification.service.js';
 import { HTTP_STATUS } from '../constants/index.js';
 import { successResponse, errorResponse } from '../utils/response.js';
 
@@ -34,6 +35,7 @@ class OtpController {
         email,
         otp,
         userType,
+        firstName: payload.firstName || payload.adminFirstName || ''
       });
       
       if (!emailResult.success) {
@@ -67,6 +69,19 @@ class OtpController {
       if (verificationResult.userType === 'tenant') {
         // Create tenant and admin user
         result = await authService.registerTenant(verificationResult.payload);
+        
+        // Send notification to master admin about new tenant registration
+        try {
+          // Create notification for master admin
+          await notificationService.sendTenantRegistrationNotification(result.tenant);
+          
+          // Send email notification to master admin
+          const masterAdminEmail = process.env.MASTER_ADMIN_EMAIL || 'admin@cpaide.com';
+          await emailService.sendNewTenantNotification(result.tenant, masterAdminEmail);
+        } catch (notificationError) {
+          console.error('Failed to send tenant registration notification:', notificationError);
+          // Don't fail the registration process if notification fails
+        }
       } else {
         // Create regular user
         result = await authService.register(verificationResult.payload);
@@ -121,6 +136,7 @@ class OtpController {
         email: otpRecord.email,
         otp,
         userType: otpRecord.userType,
+        firstName: otpRecord.payload?.firstName || otpRecord.payload?.adminFirstName || ''
       });
       
       if (!emailResult.success) {
