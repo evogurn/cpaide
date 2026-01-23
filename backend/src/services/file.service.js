@@ -163,6 +163,27 @@ class FileService {
       throw error;
     }
   }
+
+  /**
+   * Upload file from buffer to S3 with tenant isolation
+   */
+  async uploadFileFromBuffer(buffer, storageKey, mimeType, tenantId) {
+    // Validate tenant has access to this storage key
+    this.validateTenantAccess(storageKey, tenantId);
+    
+    logger.info('Uploading file from buffer:', { storageKey, tenantId });
+    
+    const command = new PutObjectCommand({
+      Bucket: env.AWS_BUCKET_NAME,
+      Key: storageKey,
+      Body: buffer,
+      ContentType: mimeType,
+    });
+
+    await s3Client.send(command);
+    
+    return { success: true };
+  }
 }
 
 export default new FileService();

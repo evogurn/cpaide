@@ -2,7 +2,11 @@ import { z } from 'zod';
 
 export const uploadDocumentSchema = z.object({
   name: z.string().min(1, 'Document name is required').max(255),
-  folderId: z.string().uuid('Invalid folder ID').optional(),
+  originalName: z.string().min(1, 'Original name is required'),
+  mimeType: z.string().min(1, 'MIME type is required'),
+  size: z.number().int().positive('File size must be positive'),
+  storageKey: z.string().min(1, 'Storage key is required'),
+  folderId: z.string().uuid('Invalid folder ID').optional().nullable(),
   tags: z.array(z.string()).optional(),
   metadata: z.record(z.any()).optional(),
 });

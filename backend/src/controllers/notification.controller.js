@@ -121,3 +121,69 @@ export const deleteNotification = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Get system notifications unread count for master admin
+ */
+export const getSystemUnreadCount = async (req, res, next) => {
+  try {
+    // Check if user has SUPER_ADMIN role
+    const userRoles = req.user.userRoles.map(ur => ur.role.name);
+    const hasSuperAdminRole = userRoles.includes('SUPER_ADMIN');
+    
+    if (!hasSuperAdminRole) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json(
+        errorResponse('Insufficient permissions', ERROR_CODES.INSUFFICIENT_PERMISSIONS, null, HTTP_STATUS.FORBIDDEN)
+      );
+    }
+    
+    const count = await notificationService.getSystemUnreadCount();
+
+    return res.status(HTTP_STATUS.OK).json(
+      successResponse({ count }, 'System unread notifications count retrieved successfully')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get system notifications for master admin
+ */
+export const getSystemNotifications = async (req, res, next) => {
+  try {
+    // Check if user has SUPER_ADMIN role
+    const userRoles = req.user.userRoles.map(ur => ur.role.name);
+    const hasSuperAdminRole = userRoles.includes('SUPER_ADMIN');
+    
+    if (!hasSuperAdminRole) {
+      return res.status(HTTP_STATUS.FORBIDDEN).json(
+        errorResponse('Insufficient permissions', ERROR_CODES.INSUFFICIENT_PERMISSIONS, null, HTTP_STATUS.FORBIDDEN)
+      );
+    }
+    
+    const {
+      page = 1,
+      limit = 10,
+      status,
+      type,
+      sortBy = 'createdAt',
+      sortOrder = 'desc'
+    } = req.query;
+
+    const notifications = await notificationService.getSystemNotifications({
+      page: parseInt(page),
+      limit: parseInt(limit),
+      status,
+      type,
+      sortBy,
+      sortOrder
+    });
+
+    return res.status(HTTP_STATUS.OK).json(
+      successResponse(notifications, 'System notifications retrieved successfully')
+    );
+  } catch (error) {
+    next(error);
+  }
+};

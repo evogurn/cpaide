@@ -1,0 +1,81 @@
+[
+  {
+    "id": "city",
+    "name": "City",
+    "children": [
+      {
+        "id": "community",
+        "name": "Community",
+        "children": [
+          {
+            "id": "lot-27",
+            "name": "Lot 27",
+            "children": [
+              {
+                "id": "custom",
+                "name": "Custom",
+                "children": [
+                  {
+                    "id": "site-survey",
+                    "name": "Site Survey",
+                    "children": []
+                  },
+                  {
+                    "id": "floor-plan",
+                    "name": "Floor Plan",
+                    "children": []
+                  },
+                  {
+                    "id": "hvac",
+                    "name": "HVAC",
+                    "children": []
+                  },
+                  {
+                    "id": "buyer-docs",
+                    "name": "Buyer Docs",
+                    "children": []
+                  },
+                  {
+                    "id": "invoices",
+                    "name": "Invoices",
+                    "children": []
+                  },
+                  {
+                    "id": "specifications",
+                    "name": "Specifications",
+                    "children": []
+                  },
+                  {
+                    "id": "warranty",
+                    "name": "Warranty",
+                    "children": []
+                  },
+                  {
+                    "id": "inspection-reports",
+                    "name": "Inspection Reports",
+                    "children": []
+                  },
+                  {
+                    "id": "photos",
+                    "name": "Photos",
+                    "children": []
+                  },
+                  {
+                    "id": "contracts",
+                    "name": "Contracts",
+                    "children": []
+                  },
+                  {
+                    "id": "selections",
+                    "name": "Selections",
+                    "children": []
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]

@@ -2,6 +2,7 @@ import { HTTP_STATUS } from '../constants/index.js';
 import { successResponse } from '../utils/response.js';
 import documentDownloadService from '../services/document-download.service.js';
 import { logger } from '../config/logger.js';
+import prisma from '../config/db.js';
 
 class DocumentDownloadController {
   /**
@@ -34,6 +35,45 @@ class DocumentDownloadController {
         userTenantId,
         userRoles
       );
+
+      // Log the download activity in the audit log and update document metadata
+      try {
+        await prisma.auditLog.create({
+          data: {
+            tenantId: userTenantId,
+            userId: userId,
+            action: 'DOWNLOAD',
+            resource: 'DOCUMENT',
+            resourceId: documentId,
+            metadata: {
+              name: downloadInfo.fileName,
+              downloadUrl: downloadInfo.downloadUrl
+            }
+          }
+        });
+
+        // Update document metadata with last download info
+        const document = await prisma.document.findUnique({
+          where: { id: documentId }
+        });
+        
+        if (document) {
+          const currentMetadata = document.metadata || {};
+          await prisma.document.update({
+            where: { id: documentId },
+            data: {
+              metadata: {
+                ...currentMetadata,
+                lastDownloadUrl: downloadInfo.downloadUrl,
+                lastDownloadedAt: new Date(),
+                lastDownloadedBy: userId
+              }
+            }
+          });
+        }
+      } catch (dbError) {
+        logger.error('Failed to log download activity', { error: dbError.message });
+      }
 
       return res.status(HTTP_STATUS.OK).json(
         successResponse(downloadInfo, 'Download URL generated successfully')

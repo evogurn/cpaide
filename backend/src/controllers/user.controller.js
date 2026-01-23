@@ -74,6 +74,24 @@ class UserController {
       next(error);
     }
   }
+
+  async listRoles(req, res, next) {
+    try {
+      const roles = await userService.listRoles();
+      return res.status(HTTP_STATUS.OK).json(successResponse(roles, 'Roles retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async listPermissions(req, res, next) {
+    try {
+      const permissions = await userService.listPermissions();
+      return res.status(HTTP_STATUS.OK).json(successResponse(permissions, 'Permissions retrieved'));
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export default new UserController();

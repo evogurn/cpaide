@@ -305,6 +305,210 @@ class EmailService {
       templateVariables,
     });
   }
+
+  /**
+   * Send user invite email with randomly generated password
+   */
+  async sendUserInviteEmail(user, tenant, password) {
+    const subject = `You've been invited to join ${tenant.name} on CPAide`;
+    const templateVariables = {
+      firstName: user.firstName,
+      tenantName: tenant.name,
+      email: user.email,
+      password: password,
+      loginUrl: `${process.env.CORS_ORIGIN}/login`,
+      supportEmail: process.env.SUPPORT_EMAIL || 'support@cpaide.com'
+    };
+
+    return this.sendEmail({
+      to: user.email,
+      subject,
+      templateName: 'user-invite',
+      templateVariables,
+    });
+  }
+
+  /**
+   * Send tenant organization name change notification to master admin
+   */
+  async sendTenantOrgNameChangeNotification(tenant, oldName, adminUser) {
+    const adminEmail = process.env.MASTER_ADMIN_EMAIL || 'admin@cpaide.com';
+    const subject = 'Tenant Organization Name Changed';
+    
+    const templateVariables = {
+      oldName,
+      newName: tenant.name,
+      tenantId: tenant.id,
+      changedBy: `${adminUser.firstName} ${adminUser.lastName}`,
+      changedAt: new Date().toLocaleString()
+    };
+
+    return this.sendEmail({
+      to: adminEmail,
+      subject,
+      templateName: 'tenant-org-name-changed',
+      templateVariables,
+    });
+  }
+
+  /**
+   * Send tenant UI update notification to master admin
+   */
+  async sendTenantUIUpdateNotification(tenant, updateType, adminUser) {
+    const adminEmail = process.env.MASTER_ADMIN_EMAIL || 'admin@cpaide.com';
+    const subject = `Tenant ${updateType} Updated`;
+    
+    const templateVariables = {
+      tenantName: tenant.name,
+      updateType,
+      tenantId: tenant.id,
+      updatedBy: `${adminUser.firstName} ${adminUser.lastName}`,
+      updatedAt: new Date().toLocaleString()
+    };
+
+    return this.sendEmail({
+      to: adminEmail,
+      subject,
+      templateName: 'tenant-ui-updated',
+      templateVariables,
+    });
+  }
+
+  /**
+   * Send tenant billing plan update notification to master admin
+   */
+  async sendTenantBillingPlanUpdateNotification(tenant, oldPlan, newPlan, adminUser) {
+    const adminEmail = process.env.MASTER_ADMIN_EMAIL || 'admin@cpaide.com';
+    const subject = 'Tenant Billing Plan Updated';
+    
+    const templateVariables = {
+      tenantName: tenant.name,
+      oldPlan: oldPlan?.name || 'None',
+      newPlan: newPlan.name,
+      tenantId: tenant.id,
+      updatedBy: `${adminUser.firstName} ${adminUser.lastName}`,
+      updatedAt: new Date().toLocaleString()
+    };
+
+    return this.sendEmail({
+      to: adminEmail,
+      subject,
+      templateName: 'tenant-billing-plan-updated',
+      templateVariables,
+    });
+  }
+
+  /**
+   * Send tenant billing expired notification to master admin
+   */
+  async sendTenantBillingExpiredNotification(tenant) {
+    const adminEmail = process.env.MASTER_ADMIN_EMAIL || 'admin@cpaide.com';
+    const subject = '⚠️ URGENT: Tenant Billing Expired';
+    
+    const templateVariables = {
+      tenantName: tenant.name,
+      tenantId: tenant.id,
+      expiredAt: new Date().toLocaleString()
+    };
+
+    return this.sendEmail({
+      to: adminEmail,
+      subject,
+      templateName: 'tenant-billing-expired',
+      templateVariables,
+    });
+  }
+
+  /**
+   * Send staff folder creation notification to tenant admin
+   */
+  async sendStaffFolderCreatedNotification(folder, user, tenantAdmin) {
+    const subject = 'New Folder Created in Your Organization';
+    
+    const templateVariables = {
+      firstName: tenantAdmin.firstName,
+      folderName: folder.name,
+      folderId: folder.id,
+      createdBy: `${user.firstName} ${user.lastName}`,
+      creatorId: user.id,
+      createdAt: new Date().toLocaleString()
+    };
+
+    return this.sendEmail({
+      to: tenantAdmin.email,
+      subject,
+      templateName: 'staff-folder-created',
+      templateVariables,
+    });
+  }
+
+  /**
+   * Send staff document upload notification to tenant admin
+   */
+  async sendStaffDocumentUploadedNotification(document, user, tenantAdmin) {
+    const subject = 'New Document Uploaded to Your Organization';
+    
+    const templateVariables = {
+      firstName: tenantAdmin.firstName,
+      documentName: document.name,
+      documentId: document.id,
+      fileSize: document.size,
+      uploadedBy: `${user.firstName} ${user.lastName}`,
+      uploaderId: user.id,
+      uploadedAt: new Date().toLocaleString()
+    };
+
+    return this.sendEmail({
+      to: tenantAdmin.email,
+      subject,
+      templateName: 'staff-document-uploaded',
+      templateVariables,
+    });
+  }
+
+  /**
+   * Send staff folder deletion notification to tenant admin
+   */
+  async sendStaffFolderDeletedNotification(folderName, user, tenantAdmin) {
+    const subject = '⚠️ Folder Deleted from Your Organization';
+    
+    const templateVariables = {
+      firstName: tenantAdmin.firstName,
+      folderName,
+      deletedBy: `${user.firstName} ${user.lastName}`,
+      deleterId: user.id,
+      deletedAt: new Date().toLocaleString()
+    };
+
+    return this.sendEmail({
+      to: tenantAdmin.email,
+      subject,
+      templateName: 'staff-folder-deleted',
+      templateVariables,
+    });
+  }
+
+  /**
+   * Send staff document deletion notification to tenant admin
+   */
+  async sendStaffDocumentDeletedNotification(documentName, user, tenantAdmin) {
+    const subject = '⚠️ Document Deleted from Your Organization';
+    
+    const templateVariables = {
+      firstName: tenantAdmin.firstName,
+      documentName,
+      deletedBy: `${user.firstName} ${user.lastName}`,
+      deleterId: user.id,
+      deletedAt: new Date().toLocaleString()
+    };
+
+    return this.sendEmail({
+      to: tenantAdmin.email,
+      subject,
+      templateName: 'staff-document-deleted',
+      templateVariables,
+    });
+  }
 }
 
 export default new EmailService();

@@ -1,11 +1,20 @@
 import tenantService from '../services/tenant.service.js';
-import { HTTP_STATUS } from '../constants/index.js';
+import notificationService from '../services/notification.service.js';
+import { HTTP_STATUS, NOTIFICATION_TYPES } from '../constants/index.js';
 import { successResponse, paginationMeta } from '../utils/response.js';
 
 class TenantController {
   async createTenant(req, res, next) {
     try {
       const tenant = await tenantService.createTenant(req.body);
+      
+      // Send notification to master admin about new tenant registration
+      try {
+        await notificationService.sendTenantRegistrationNotification(tenant);
+      } catch (notificationError) {
+        console.error('Failed to send tenant registration notification:', notificationError);
+      }
+      
       return res.status(HTTP_STATUS.CREATED).json(
         successResponse(tenant, 'Tenant created', HTTP_STATUS.CREATED)
       );
@@ -45,7 +54,56 @@ class TenantController {
 
   async updateTenant(req, res, next) {
     try {
+      // Get current tenant data for comparison
+      const prisma = await import('../config/db.js').then(m => m.default);
+      const currentTenant = await prisma.tenant.findUnique({
+        where: { id: req.params.id }
+      });
+      
       const tenant = await tenantService.updateTenant(req.params.id, req.body);
+      
+      // Send notifications for specific tenant activities
+      try {
+        // Organization name change notification
+        if (req.body.name && req.body.name !== currentTenant.name) {
+          await notificationService.sendTenantOrgNameChangeNotification(
+            tenant, 
+            currentTenant.name, 
+            req.user
+          );
+        }
+        
+        // Login/Registration UI update notification (if applicable)
+        if (req.body.loginPageConfig || req.body.registrationPageConfig) {
+          const updateType = req.body.loginPageConfig ? 'Login Page' : 'Registration Page';
+          await notificationService.sendTenantUIUpdateNotification(
+            tenant, 
+            updateType, 
+            req.user
+          );
+        }
+        
+        // Billing plan update notification
+        if (req.body.subscriptionPlanId && req.body.subscriptionPlanId !== currentTenant.subscriptionPlanId) {
+          const newPlan = await prisma.subscriptionPlan.findUnique({
+            where: { id: req.body.subscriptionPlanId }
+          });
+          const oldPlan = currentTenant.subscriptionPlanId ? 
+            await prisma.subscriptionPlan.findUnique({
+              where: { id: currentTenant.subscriptionPlanId }
+            }) : null;
+          
+          await notificationService.sendTenantBillingPlanUpdateNotification(
+            tenant, 
+            oldPlan, 
+            newPlan, 
+            req.user
+          );
+        }
+      } catch (notificationError) {
+        console.error('Failed to send tenant activity notifications:', notificationError);
+      }
+      
       return res.status(HTTP_STATUS.OK).json(successResponse(tenant, 'Tenant updated'));
     } catch (error) {
       next(error);

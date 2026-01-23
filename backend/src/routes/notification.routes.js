@@ -1,6 +1,8 @@
 import express from 'express';
 import { authenticate } from '../middlewares/auth.js';
-import { getNotifications, markAsRead, markAllAsRead, archiveNotification, deleteNotification, getUnreadCount } from '../controllers/notification.controller.js';
+import { requireRole } from '../middlewares/rbac.js';
+import { ROLES } from '../constants/index.js';
+import { getNotifications, getSystemNotifications, getSystemUnreadCount, markAsRead, markAllAsRead, archiveNotification, deleteNotification, getUnreadCount } from '../controllers/notification.controller.js';
 
 const router = express.Router();
 
@@ -21,5 +23,9 @@ router.patch('/:id/archive', authenticate, archiveNotification);
 
 // Delete notification
 router.delete('/:id', authenticate, deleteNotification);
+
+// System notifications for master admin
+router.get('/system', authenticate, getSystemNotifications);
+router.get('/system/unread-count', authenticate, getSystemUnreadCount);
 
 export default router;

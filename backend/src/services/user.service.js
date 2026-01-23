@@ -1,12 +1,14 @@
 import prisma from '../config/db.js';
 import { hashPassword } from '../utils/bcrypt.js';
 import { HTTP_STATUS, ERROR_CODES } from '../constants/index.js';
+import emailService from './email.service.js';
+import crypto from 'crypto';
 
 class UserService {
   /**
    * Create a new user
    */
-  async createUser({ tenantId, email, password, firstName, lastName, roleIds = [] }) {
+  async createUser({ tenantId, email, password, firstName, lastName, roleIds = [], sendInvite = true }) {
     // Check if user exists
     const existing = await prisma.user.findFirst({
       where: { tenantId, email, deletedAt: null },
@@ -19,8 +21,14 @@ class UserService {
       throw error;
     }
 
+    // Generate random password if not provided or if sending invite
+    let passwordToUse = password;
+    if (!passwordToUse) {
+      passwordToUse = crypto.randomBytes(8).toString('hex');
+    }
+
     // Hash password
-    const hashedPassword = await hashPassword(password);
+    const hashedPassword = await hashPassword(passwordToUse);
 
     // Create user
     const user = await prisma.user.create({
@@ -32,6 +40,9 @@ class UserService {
         lastName,
         status: 'ACTIVE',
       },
+      include: {
+        tenant: true
+      }
     });
 
     // Assign roles
@@ -46,6 +57,16 @@ class UserService {
         await prisma.userRole.create({
           data: { userId: user.id, roleId: defaultRole.id },
         });
+      }
+    }
+
+    // Send invite email if requested
+    if (sendInvite) {
+      try {
+        await emailService.sendUserInviteEmail(user, user.tenant, passwordToUse);
+      } catch (error) {
+        // Log error but don't fail user creation
+        console.error('Failed to send invite email:', error);
       }
     }
 
@@ -113,22 +134,17 @@ class UserService {
             include: { role: true },
           },
         },
-        select: {
-          id: true,
-          email: true,
-          firstName: true,
-          lastName: true,
-          avatar: true,
-          status: true,
-          lastLoginAt: true,
-          createdAt: true,
-          userRoles: true,
-        },
       }),
       prisma.user.count({ where }),
     ]);
 
-    return { users, total };
+    // Remove passwords from response
+    const sanitizedUsers = users.map(user => {
+      const { password, ...userWithoutPassword } = user;
+      return userWithoutPassword;
+    });
+
+    return { users: sanitizedUsers, total };
   }
 
   /**
@@ -192,6 +208,52 @@ class UserService {
     });
 
     return await this.getUserById(userId);
+  }
+
+  /**
+   * Reset user password
+   */
+  async resetPassword(userId, newPassword) {
+    console.log('Resetting password for user:', userId);
+    const hashedPassword = await hashPassword(newPassword);
+    console.log('Hashed password:', hashedPassword.substring(0, 20) + '...');
+    
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword }
+    });
+    
+    // Verify the password was updated
+    const updatedUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { password: true }
+    });
+    
+    console.log('Password updated in DB:', updatedUser.password === hashedPassword);
+
+    return true;
+  }
+
+  /**
+   * List all available roles
+   */
+  async listRoles() {
+    return await prisma.role.findMany({
+      include: {
+        permissions: {
+          include: {
+            permission: true
+          }
+        }
+      }
+    });
+  }
+
+  /**
+   * List all available permissions
+   */
+  async listPermissions() {
+    return await prisma.permission.findMany();
   }
 }
 

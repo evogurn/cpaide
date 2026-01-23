@@ -2,10 +2,10 @@ import { z } from 'zod';
 
 export const createUserSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
+  password: z.string().min(8, 'Password must be at least 8 characters').optional(),
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
-  roleIds: z.array(z.string().uuid()).optional(),
+  roleIds: z.array(z.string()).optional(),
 });
 
 export const updateUserSchema = z.object({
@@ -22,4 +22,8 @@ export const updateUserSchema = z.object({
 
 export const assignRoleSchema = z.object({
   roleIds: z.array(z.string().uuid()).min(1, 'At least one role is required'),
+});
+
+export const resetPasswordSchema = z.object({
+  password: z.string().min(8, 'Password must be at least 8 characters'),
 });

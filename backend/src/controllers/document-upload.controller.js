@@ -103,6 +103,73 @@ class DocumentUploadController {
       next(error);
     }
   }
+
+  /**
+   * Direct file upload through backend
+   */
+  async directUpload(req, res, next) {
+    try {
+      const tenantId = req.user?.tenantId; // Get tenantId from authenticated user
+      
+      // Check if file was uploaded
+      if (!req.file && !req.files) {
+        const error = new Error('No file uploaded');
+        error.statusCode = HTTP_STATUS.BAD_REQUEST;
+        throw error;
+      }
+      
+      const file = req.file || (req.files && req.files[0]);
+      
+      if (!file) {
+        const error = new Error('No file found in request');
+        error.statusCode = HTTP_STATUS.BAD_REQUEST;
+        throw error;
+      }
+      
+      // Security check: Ensure tenantId exists and matches authenticated user
+      if (!tenantId) {
+        const error = new Error('Tenant ID not found in authenticated user context');
+        error.statusCode = HTTP_STATUS.UNAUTHORIZED;
+        throw error;
+      }
+      
+      // Generate a unique document ID
+      const documentId = `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      
+      // Use the document upload service to generate secure object key with tenant isolation
+      const documentUploadService = await import('../services/document-upload.service.js').then(m => m.default);
+      
+      // Generate secure object key with tenant isolation
+      const objectKey = documentUploadService.generateSecureObjectKey(
+        tenantId,
+        file.originalname,
+        documentId
+      );
+      
+      // Upload file to S3 using file service
+      const fileService = await import('../services/file.service.js').then(m => m.default);
+      
+      // Use the file buffer to upload to S3
+      await fileService.uploadFileFromBuffer(file.buffer, objectKey, file.mimetype, tenantId);
+      
+      // Return success response with the object key
+      return res.status(HTTP_STATUS.OK).json(
+        successResponse({
+          objectKey,
+          fileName: file.originalname,
+          size: file.size,
+          mimeType: file.mimetype,
+        }, 'File uploaded successfully')
+      );
+    } catch (error) {
+      logger.error('Error in direct file upload', { 
+        error: error.message, 
+        tenantId: req.user?.tenantId,
+        userId: req.user?.id 
+      });
+      next(error);
+    }
+  }
 }
 
 export default new DocumentUploadController();

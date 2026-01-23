@@ -1,5 +1,7 @@
 import express from 'express';
 import { requireAdmin } from '../middlewares/adminAuth.js';
+import { validateRequest } from '../middlewares/validate.js';
+import { resetPasswordSchema } from '../validations/user.validation.js';
 import { 
   getAdminDashboard,
   getAllTenants,
@@ -14,7 +16,11 @@ import {
   upsertBillingPlan,
   deleteBillingPlan,
   updateTenantPricing,
-  getTenantBillingInfo
+  getTenantBillingInfo,
+  resetUserPassword,
+  updateUserAdmin,
+  deleteUserAdmin,
+  createUserAdmin
 } from '../controllers/admin.controller.js';
 
 const router = express.Router();
@@ -35,7 +41,11 @@ router.patch('/tenants/:tenantId', updateTenant);
 
 // Users
 router.get('/users', getAllUsers);
+router.post('/users', createUserAdmin);
 router.patch('/users/:userId/status', updateUserStatus);
+router.patch('/users/:userId/password', validateRequest(resetPasswordSchema), resetUserPassword);
+router.patch('/users/:userId', updateUserAdmin);
+router.delete('/users/:userId', deleteUserAdmin);
 
 // Billing Plans
 router.get('/billing/plans', getAllBillingPlans);

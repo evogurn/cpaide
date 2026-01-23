@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tenant Organization Name Changed</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #007bff;
+            padding-bottom: 20px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+        .content {
+            margin: 20px 0;
+        }
+        .details {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #666;
+            font-size: 12px;
+        }
+        .highlight {
+            color: #007bff;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">CPAide</div>
+            <h2>Tenant Organization Name Changed</h2>
+        </div>
+        
+        <div class="content">
+            <p>Hello Master Admin,</p>
+            
+            <p>A tenant has updated their organization name in the system:</p>
+            
+            <div class="details">
+                <p><strong>Previous Name:</strong> <span class="highlight">{{oldName}}</span></p>
+                <p><strong>New Name:</strong> <span class="highlight">{{newName}}</span></p>
+                <p><strong>Tenant ID:</strong> {{tenantId}}</p>
+                <p><strong>Changed By:</strong> {{changedBy}}</p>
+                <p><strong>Changed At:</strong> {{changedAt}}</p>
+            </div>
+            
+            <p>This change has been recorded in the system. Please review if necessary.</p>
+        </div>
+        
+        <div class="footer">
+            <p>© 2025 CPAide. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

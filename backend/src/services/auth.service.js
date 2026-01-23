@@ -160,6 +160,7 @@ class AuthService {
     
     if (tenantId) {
       // If tenantId is provided, search within that tenant
+      console.log('Login attempt for email:', email, 'in tenant:', tenantId);
       user = await prisma.user.findFirst({
         where: {
           email,
@@ -181,6 +182,7 @@ class AuthService {
       });
     } else {
       // If no tenantId provided, find user by email across all tenants
+      console.log('Login attempt for email:', email, 'without specific tenant');
       user = await prisma.user.findFirst({
         where: {
           email,
@@ -200,6 +202,8 @@ class AuthService {
         },
       });
     }
+    
+    console.log('User found for login:', user ? { id: user.id, email: user.email, status: user.status } : 'No user found');
 
     let loginStatus = 'SUCCESS';
     let failureReason = null;
@@ -316,7 +320,9 @@ class AuthService {
     }
 
     // Verify password
+    console.log('Attempting password comparison for user:', user.id);
     const isPasswordValid = await comparePassword(password, user.password);
+    console.log('Password comparison result:', isPasswordValid);
 
     if (!isPasswordValid) {
       loginStatus = 'FAILED';
@@ -412,7 +418,21 @@ class AuthService {
       tenantId: tokenRecord.user.tenantId,
     });
 
-    return { accessToken };
+    // Generate new refresh token (token rotation)
+    const newRefreshToken = createRefreshToken({
+      userId: tokenRecord.userId,
+      tenantId: tokenRecord.user.tenantId,
+    });
+
+    // Revoke old token and store new one
+    await prisma.refreshToken.update({
+      where: { id: tokenRecord.id },
+      data: { isRevoked: true },
+    });
+
+    await this.storeRefreshToken(tokenRecord.userId, newRefreshToken);
+
+    return { accessToken, refreshToken: newRefreshToken };
   }
 
   /**
@@ -426,6 +446,40 @@ class AuthService {
     });
 
     return { message: 'Logged out successfully' };
+  }
+
+  /**
+   * Change user password
+   */
+  async changePassword(userId, oldPassword, newPassword) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      const error = new Error('User not found');
+      error.statusCode = HTTP_STATUS.NOT_FOUND;
+      error.code = ERROR_CODES.NOT_FOUND;
+      throw error;
+    }
+
+    // Verify old password
+    const isPasswordValid = await comparePassword(oldPassword, user.password);
+    if (!isPasswordValid) {
+      const error = new Error('Invalid current password');
+      error.statusCode = HTTP_STATUS.UNAUTHORIZED;
+      error.code = ERROR_CODES.INVALID_CREDENTIALS;
+      throw error;
+    }
+
+    // Hash and update new password
+    const hashedPassword = await hashPassword(newPassword);
+    await prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    return { message: 'Password changed successfully' };
   }
 
   /**

@@ -356,6 +356,24 @@ class NotificationService {
   }
 
   /**
+   * Get system notifications unread count
+   */
+  async getSystemUnreadCount() {
+    try {
+      const count = await prisma.notification.count({
+        where: {
+          status: NOTIFICATION_STATUS.UNREAD
+        }
+      });
+
+      return count;
+    } catch (error) {
+      logger.error('Failed to get system unread notifications count', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
    * Send tenant registration notification to master admin
    */
   async sendTenantRegistrationNotification(tenant) {
@@ -526,6 +544,25 @@ class NotificationService {
         priority: ticket.priority === 'HIGH' ? 'HIGH' : 'MEDIUM'
       });
 
+      // Also send email notification
+      try {
+        const emailService = await import('./email.service.js').then(m => m.default);
+        
+        if (recipientUserId === null) {
+          // Send to master admin
+          const masterAdminEmail = process.env.MASTER_ADMIN_EMAIL || 'admin@cpaide.com';
+          await emailService.sendSupportTicketNotification(ticket, masterAdminEmail, 'new');
+        } else {
+          // Send to specific user
+          const user = await prisma.user.findUnique({ where: { id: recipientUserId } });
+          if (user) {
+            await emailService.sendSupportTicketNotification(ticket, user.email, 'new');
+          }
+        }
+      } catch (emailError) {
+        logger.error('Failed to send support ticket email', { error: emailError.message, ticketId: ticket.id });
+      }
+
       logger.info('Support ticket notification created', { ticketId: ticket.id, userId: recipientUserId });
 
       return notification;
@@ -588,6 +625,567 @@ class NotificationService {
    */
   getNotificationTypes() {
     return NOTIFICATION_TYPES;
+  }
+
+  /**
+   * Send tenant organization name change notification to master admin
+   */
+  async sendTenantOrgNameChangeNotification(tenant, oldName, adminUser) {
+    try {
+      const notification = await this.createNotification({
+        userId: null, // System notification
+        tenantId: tenant.id,
+        type: NOTIFICATION_TYPES.TENANT_ORGANIZATION_NAME_CHANGED,
+        title: 'Tenant Organization Name Changed',
+        message: `Tenant "${oldName}" has changed their organization name to "${tenant.name}"`,
+        data: {
+          tenantId: tenant.id,
+          oldName,
+          newName: tenant.name,
+          changedBy: `${adminUser.firstName} ${adminUser.lastName}`,
+          changedAt: new Date().toISOString()
+        },
+        priority: 'MEDIUM'
+      });
+
+      // Also send email notification
+      try {
+        const emailService = await import('./email.service.js').then(m => m.default);
+        await emailService.sendTenantOrgNameChangeNotification(tenant, oldName, adminUser);
+      } catch (emailError) {
+        logger.error('Failed to send tenant org name change email', { error: emailError.message, tenantId: tenant.id });
+      }
+
+      logger.info('Tenant organization name change notification created', { tenantId: tenant.id });
+      return notification;
+    } catch (error) {
+      logger.error('Failed to send tenant org name change notification', { error: error.message, tenantId: tenant.id });
+      throw error;
+    }
+  }
+
+  /**
+   * Send tenant login/registration UI update notification to master admin
+   */
+  async sendTenantUIUpdateNotification(tenant, updateType, adminUser) {
+    try {
+      const notification = await this.createNotification({
+        userId: null, // System notification
+        tenantId: tenant.id,
+        type: NOTIFICATION_TYPES.TENANT_LOGIN_UI_UPDATE,
+        title: `Tenant ${updateType} Updated`,
+        message: `Tenant "${tenant.name}" has updated their ${updateType.toLowerCase()} page`,
+        data: {
+          tenantId: tenant.id,
+          tenantName: tenant.name,
+          updateType,
+          updatedBy: `${adminUser.firstName} ${adminUser.lastName}`,
+          updatedAt: new Date().toISOString()
+        },
+        priority: 'LOW'
+      });
+
+      // Also send email notification
+      try {
+        const emailService = await import('./email.service.js').then(m => m.default);
+        await emailService.sendTenantUIUpdateNotification(tenant, updateType, adminUser);
+      } catch (emailError) {
+        logger.error('Failed to send tenant UI update email', { error: emailError.message, tenantId: tenant.id });
+      }
+
+      logger.info('Tenant UI update notification created', { tenantId: tenant.id, updateType });
+      return notification;
+    } catch (error) {
+      logger.error('Failed to send tenant UI update notification', { error: error.message, tenantId: tenant.id });
+      throw error;
+    }
+  }
+
+  /**
+   * Send tenant billing plan update notification to master admin
+   */
+  async sendTenantBillingPlanUpdateNotification(tenant, oldPlan, newPlan, adminUser) {
+    try {
+      const notification = await this.createNotification({
+        userId: null, // System notification
+        tenantId: tenant.id,
+        type: NOTIFICATION_TYPES.TENANT_BILLING_PLAN_UPDATED,
+        title: 'Tenant Billing Plan Updated',
+        message: `Tenant "${tenant.name}" has updated their billing plan from "${oldPlan?.name || 'None'}" to "${newPlan.name}"`,
+        data: {
+          tenantId: tenant.id,
+          tenantName: tenant.name,
+          oldPlan: oldPlan?.name || 'None',
+          newPlan: newPlan.name,
+          updatedBy: `${adminUser.firstName} ${adminUser.lastName}`,
+          updatedAt: new Date().toISOString()
+        },
+        priority: 'MEDIUM'
+      });
+
+      // Also send email notification
+      try {
+        const emailService = await import('./email.service.js').then(m => m.default);
+        await emailService.sendTenantBillingPlanUpdateNotification(tenant, oldPlan, newPlan, adminUser);
+      } catch (emailError) {
+        logger.error('Failed to send tenant billing plan update email', { error: emailError.message, tenantId: tenant.id });
+      }
+
+      logger.info('Tenant billing plan update notification created', { tenantId: tenant.id });
+      return notification;
+    } catch (error) {
+      logger.error('Failed to send tenant billing plan update notification', { error: error.message, tenantId: tenant.id });
+      throw error;
+    }
+  }
+
+  /**
+   * Send tenant billing expired notification to master admin
+   */
+  async sendTenantBillingExpiredNotification(tenant) {
+    try {
+      const notification = await this.createNotification({
+        userId: null, // System notification
+        tenantId: tenant.id,
+        type: NOTIFICATION_TYPES.TENANT_BILLING_EXPIRED,
+        title: 'Tenant Billing Expired',
+        message: `Tenant "${tenant.name}" billing has expired and requires attention`,
+        data: {
+          tenantId: tenant.id,
+          tenantName: tenant.name,
+          expiredAt: new Date().toISOString()
+        },
+        priority: 'HIGH',
+        isUrgent: true
+      });
+
+      // Also send email notification
+      try {
+        const emailService = await import('./email.service.js').then(m => m.default);
+        await emailService.sendTenantBillingExpiredNotification(tenant);
+      } catch (emailError) {
+        logger.error('Failed to send tenant billing expired email', { error: emailError.message, tenantId: tenant.id });
+      }
+
+      logger.info('Tenant billing expired notification created', { tenantId: tenant.id });
+      return notification;
+    } catch (error) {
+      logger.error('Failed to send tenant billing expired notification', { error: error.message, tenantId: tenant.id });
+      throw error;
+    }
+  }
+
+  /**
+   * Send staff folder creation notification to tenant admin
+   */
+  async sendStaffFolderCreatedNotification(folder, user, tenant) {
+    try {
+      // Find tenant admin
+      const tenantAdmin = await prisma.user.findFirst({
+        where: {
+          tenantId: tenant.id,
+          userRoles: {
+            some: {
+              role: {
+                name: 'TENANT_ADMIN'
+              }
+            }
+          }
+        }
+      });
+
+      if (!tenantAdmin) {
+        throw new Error(`Tenant admin not found for tenant ${tenant.id}`);
+      }
+
+      const notification = await this.createNotification({
+        userId: tenantAdmin.id,
+        tenantId: tenant.id,
+        type: NOTIFICATION_TYPES.STAFF_FOLDER_CREATED,
+        title: 'New Folder Created',
+        message: `Staff member ${user.firstName} ${user.lastName} created folder "${folder.name}"`,
+        data: {
+          folderId: folder.id,
+          folderName: folder.name,
+          createdBy: `${user.firstName} ${user.lastName}`,
+          creatorId: user.id,
+          createdAt: new Date().toISOString()
+        },
+        priority: 'LOW'
+      });
+
+      // Also send email notification
+      try {
+        const emailService = await import('./email.service.js').then(m => m.default);
+        await emailService.sendStaffFolderCreatedNotification(folder, user, tenantAdmin);
+      } catch (emailError) {
+        logger.error('Failed to send staff folder created email', { error: emailError.message, folderId: folder.id });
+      }
+
+      logger.info('Staff folder created notification sent', { folderId: folder.id, userId: tenantAdmin.id });
+      return notification;
+    } catch (error) {
+      logger.error('Failed to send staff folder created notification', { error: error.message, folderId: folder.id });
+      throw error;
+    }
+  }
+
+  /**
+   * Send staff folder deletion notification to tenant admin
+   */
+  async sendStaffFolderDeletedNotification(folderName, user, tenant) {
+    try {
+      // Find tenant admin
+      const tenantAdmin = await prisma.user.findFirst({
+        where: {
+          tenantId: tenant.id,
+          userRoles: {
+            some: {
+              role: {
+                name: 'TENANT_ADMIN'
+              }
+            }
+          }
+        }
+      });
+
+      if (!tenantAdmin) {
+        throw new Error(`Tenant admin not found for tenant ${tenant.id}`);
+      }
+
+      const notification = await this.createNotification({
+        userId: tenantAdmin.id,
+        tenantId: tenant.id,
+        type: NOTIFICATION_TYPES.STAFF_FOLDER_DELETED,
+        title: 'Folder Deleted',
+        message: `Staff member ${user.firstName} ${user.lastName} deleted folder "${folderName}"`,
+        data: {
+          folderName,
+          deletedBy: `${user.firstName} ${user.lastName}`,
+          deleterId: user.id,
+          deletedAt: new Date().toISOString()
+        },
+        priority: 'MEDIUM'
+      });
+
+      // Also send email notification
+      try {
+        const emailService = await import('./email.service.js').then(m => m.default);
+        await emailService.sendStaffFolderDeletedNotification(folderName, user, tenantAdmin);
+      } catch (emailError) {
+        logger.error('Failed to send staff folder deleted email', { error: emailError.message, folderName });
+      }
+
+      logger.info('Staff folder deleted notification sent', { folderName, userId: tenantAdmin.id });
+      return notification;
+    } catch (error) {
+      logger.error('Failed to send staff folder deleted notification', { error: error.message, folderName });
+      throw error;
+    }
+  }
+
+  /**
+   * Send staff document upload notification to tenant admin
+   */
+  async sendStaffDocumentUploadedNotification(document, user, tenant) {
+    try {
+      // Find tenant admin
+      const tenantAdmin = await prisma.user.findFirst({
+        where: {
+          tenantId: tenant.id,
+          userRoles: {
+            some: {
+              role: {
+                name: 'TENANT_ADMIN'
+              }
+            }
+          }
+        }
+      });
+
+      if (!tenantAdmin) {
+        throw new Error(`Tenant admin not found for tenant ${tenant.id}`);
+      }
+
+      const notification = await this.createNotification({
+        userId: tenantAdmin.id,
+        tenantId: tenant.id,
+        type: NOTIFICATION_TYPES.STAFF_DOCUMENT_UPLOADED,
+        title: 'New Document Uploaded',
+        message: `Staff member ${user.firstName} ${user.lastName} uploaded document "${document.name}"`,
+        data: {
+          documentId: document.id,
+          documentName: document.name,
+          uploadedBy: `${user.firstName} ${user.lastName}`,
+          uploaderId: user.id,
+          uploadedAt: new Date().toISOString(),
+          fileSize: document.size
+        },
+        priority: 'LOW'
+      });
+
+      // Also send email notification
+      try {
+        const emailService = await import('./email.service.js').then(m => m.default);
+        await emailService.sendStaffDocumentUploadedNotification(document, user, tenantAdmin);
+      } catch (emailError) {
+        logger.error('Failed to send staff document uploaded email', { error: emailError.message, documentId: document.id });
+      }
+
+      logger.info('Staff document uploaded notification sent', { documentId: document.id, userId: tenantAdmin.id });
+      return notification;
+    } catch (error) {
+      logger.error('Failed to send staff document uploaded notification', { error: error.message, documentId: document.id });
+      throw error;
+    }
+  }
+
+  /**
+   * Send staff document deletion notification to tenant admin
+   */
+  async sendStaffDocumentDeletedNotification(documentName, user, tenant) {
+    try {
+      // Find tenant admin
+      const tenantAdmin = await prisma.user.findFirst({
+        where: {
+          tenantId: tenant.id,
+          userRoles: {
+            some: {
+              role: {
+                name: 'TENANT_ADMIN'
+              }
+            }
+          }
+        }
+      });
+
+      if (!tenantAdmin) {
+        throw new Error(`Tenant admin not found for tenant ${tenant.id}`);
+      }
+
+      const notification = await this.createNotification({
+        userId: tenantAdmin.id,
+        tenantId: tenant.id,
+        type: NOTIFICATION_TYPES.STAFF_DOCUMENT_DELETED,
+        title: 'Document Deleted',
+        message: `Staff member ${user.firstName} ${user.lastName} deleted document "${documentName}"`,
+        data: {
+          documentName,
+          deletedBy: `${user.firstName} ${user.lastName}`,
+          deleterId: user.id,
+          deletedAt: new Date().toISOString()
+        },
+        priority: 'MEDIUM'
+      });
+
+      // Also send email notification
+      try {
+        const emailService = await import('./email.service.js').then(m => m.default);
+        await emailService.sendStaffDocumentDeletedNotification(documentName, user, tenantAdmin);
+      } catch (emailError) {
+        logger.error('Failed to send staff document deleted email', { error: emailError.message, documentName });
+      }
+
+      logger.info('Staff document deleted notification sent', { documentName, userId: tenantAdmin.id });
+      return notification;
+    } catch (error) {
+      logger.error('Failed to send staff document deleted notification', { error: error.message, documentName });
+      throw error;
+    }
+  }
+
+  /**
+   * Send staff document moved notification to tenant admin
+   */
+  async sendStaffDocumentMovedNotification(document, user, tenant, oldFolderName, newFolderName) {
+    try {
+      // Find tenant admin
+      const tenantAdmin = await prisma.user.findFirst({
+        where: {
+          tenantId: tenant.id,
+          userRoles: {
+            some: {
+              role: {
+                name: 'TENANT_ADMIN'
+              }
+            }
+          }
+        }
+      });
+
+      if (!tenantAdmin) {
+        throw new Error(`Tenant admin not found for tenant ${tenant.id}`);
+      }
+
+      const notification = await this.createNotification({
+        userId: tenantAdmin.id,
+        tenantId: tenant.id,
+        type: NOTIFICATION_TYPES.STAFF_DOCUMENT_MOVED,
+        title: 'Document Moved',
+        message: `Staff member ${user.firstName} ${user.lastName} moved document "${document.name}" from "${oldFolderName}" to "${newFolderName}"`,
+        data: {
+          documentId: document.id,
+          documentName: document.name,
+          movedBy: `${user.firstName} ${user.lastName}`,
+          moverId: user.id,
+          movedAt: new Date().toISOString(),
+          oldFolder: oldFolderName,
+          newFolder: newFolderName
+        },
+        priority: 'LOW'
+      });
+
+      logger.info('Staff document moved notification sent', { documentId: document.id, userId: tenantAdmin.id });
+      return notification;
+    } catch (error) {
+      logger.error('Failed to send staff document moved notification', { error: error.message, documentId: document.id });
+      throw error;
+    }
+  }
+
+  /**
+   * Send staff folder moved notification to tenant admin
+   */
+  async sendStaffFolderMovedNotification(folder, user, tenant, oldParentName, newParentName) {
+    try {
+      // Find tenant admin
+      const tenantAdmin = await prisma.user.findFirst({
+        where: {
+          tenantId: tenant.id,
+          userRoles: {
+            some: {
+              role: {
+                name: 'TENANT_ADMIN'
+              }
+            }
+          }
+        }
+      });
+
+      if (!tenantAdmin) {
+        throw new Error(`Tenant admin not found for tenant ${tenant.id}`);
+      }
+
+      const notification = await this.createNotification({
+        userId: tenantAdmin.id,
+        tenantId: tenant.id,
+        type: NOTIFICATION_TYPES.STAFF_FOLDER_MOVED,
+        title: 'Folder Moved',
+        message: `Staff member ${user.firstName} ${user.lastName} moved folder "${folder.name}" from "${oldParentName}" to "${newParentName}"`,
+        data: {
+          folderId: folder.id,
+          folderName: folder.name,
+          movedBy: `${user.firstName} ${user.lastName}`,
+          moverId: user.id,
+          movedAt: new Date().toISOString(),
+          oldParent: oldParentName,
+          newParent: newParentName
+        },
+        priority: 'LOW'
+      });
+
+      logger.info('Staff folder moved notification sent', { folderId: folder.id, userId: tenantAdmin.id });
+      return notification;
+    } catch (error) {
+      logger.error('Failed to send staff folder moved notification', { error: error.message, folderId: folder.id });
+      throw error;
+    }
+  }
+
+  /**
+   * Send staff document renamed notification to tenant admin
+   */
+  async sendStaffDocumentRenamedNotification(document, user, tenant, oldName) {
+    try {
+      // Find tenant admin
+      const tenantAdmin = await prisma.user.findFirst({
+        where: {
+          tenantId: tenant.id,
+          userRoles: {
+            some: {
+              role: {
+                name: 'TENANT_ADMIN'
+              }
+            }
+          }
+        }
+      });
+
+      if (!tenantAdmin) {
+        throw new Error(`Tenant admin not found for tenant ${tenant.id}`);
+      }
+
+      const notification = await this.createNotification({
+        userId: tenantAdmin.id,
+        tenantId: tenant.id,
+        type: NOTIFICATION_TYPES.STAFF_DOCUMENT_RENAMED,
+        title: 'Document Renamed',
+        message: `Staff member ${user.firstName} ${user.lastName} renamed document from "${oldName}" to "${document.name}"`,
+        data: {
+          documentId: document.id,
+          oldName,
+          newName: document.name,
+          renamedBy: `${user.firstName} ${user.lastName}`,
+          renamerId: user.id,
+          renamedAt: new Date().toISOString()
+        },
+        priority: 'LOW'
+      });
+
+      logger.info('Staff document renamed notification sent', { documentId: document.id, userId: tenantAdmin.id });
+      return notification;
+    } catch (error) {
+      logger.error('Failed to send staff document renamed notification', { error: error.message, documentId: document.id });
+      throw error;
+    }
+  }
+
+  /**
+   * Send staff folder renamed notification to tenant admin
+   */
+  async sendStaffFolderRenamedNotification(folder, user, tenant, oldName) {
+    try {
+      // Find tenant admin
+      const tenantAdmin = await prisma.user.findFirst({
+        where: {
+          tenantId: tenant.id,
+          userRoles: {
+            some: {
+              role: {
+                name: 'TENANT_ADMIN'
+              }
+            }
+          }
+        }
+      });
+
+      if (!tenantAdmin) {
+        throw new Error(`Tenant admin not found for tenant ${tenant.id}`);
+      }
+
+      const notification = await this.createNotification({
+        userId: tenantAdmin.id,
+        tenantId: tenant.id,
+        type: NOTIFICATION_TYPES.STAFF_FOLDER_RENAMED,
+        title: 'Folder Renamed',
+        message: `Staff member ${user.firstName} ${user.lastName} renamed folder from "${oldName}" to "${folder.name}"`,
+        data: {
+          folderId: folder.id,
+          oldName,
+          newName: folder.name,
+          renamedBy: `${user.firstName} ${user.lastName}`,
+          renamerId: user.id,
+          renamedAt: new Date().toISOString()
+        },
+        priority: 'LOW'
+      });
+
+      logger.info('Staff folder renamed notification sent', { folderId: folder.id, userId: tenantAdmin.id });
+      return notification;
+    } catch (error) {
+      logger.error('Failed to send staff folder renamed notification', { error: error.message, folderId: folder.id });
+      throw error;
+    }
   }
 
   /**

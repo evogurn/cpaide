@@ -1,0 +1,89 @@
+[
+  {
+    "id": "tkt_001",
+    "title": "Upload button not working",
+    "description": "Clicking upload doesn't respond. Nothing happens when I click the upload button in the document explorer.",
+    "user": "John Doe",
+    "userId": "usr_123",
+    "createdAt": "2025-12-04T10:45:00Z",
+    "status": "Open",
+    "priority": "Normal",
+    "attachments": ["/assets/support/upload_issue.png"],
+    "comments": [
+      {
+        "id": "cmt_001",
+        "author": "Admin",
+        "authorRole": "Admin",
+        "message": "We are looking into it. Can you provide more details about your browser and operating system?",
+        "timestamp": "2025-12-04T11:05:00Z"
+      }
+    ]
+  },
+  {
+    "id": "tkt_002",
+    "title": "Slow loading times",
+    "description": "The application takes too long to load, especially on the document explorer page with many files.",
+    "user": "Sarah Lee",
+    "userId": "usr_124",
+    "createdAt": "2025-12-03T14:30:00Z",
+    "status": "In Progress",
+    "priority": "Normal",
+    "attachments": [],
+    "comments": [
+      {
+        "id": "cmt_002",
+        "author": "Mike Johnson",
+        "authorRole": "Admin",
+        "message": "We've identified the issue and are working on optimizations.",
+        "timestamp": "2025-12-03T16:15:00Z"
+      }
+    ]
+  },
+  {
+    "id": "tkt_003",
+    "title": "Search function not returning results",
+    "description": "Searching for documents returns no results even when documents clearly match the search term.",
+    "user": "Robert Brown",
+    "userId": "usr_125",
+    "createdAt": "2025-12-02T09:15:00Z",
+    "status": "Resolved",
+    "priority": "High",
+    "attachments": ["/assets/support/search_issue1.png", "/assets/support/search_issue2.png"],
+    "comments": [
+      {
+        "id": "cmt_003",
+        "author": "Emily Davis",
+        "authorRole": "Admin",
+        "message": "This has been fixed in the latest update. Please check if the issue persists.",
+        "timestamp": "2025-12-02T11:30:00Z"
+      },
+      {
+        "id": "cmt_004",
+        "author": "Robert Brown",
+        "authorRole": "User",
+        "message": "Yes, it's working now. Thank you!",
+        "timestamp": "2025-12-02T12:45:00Z"
+      }
+    ]
+  },
+  {
+    "id": "tkt_004",
+    "title": "Mobile view issues",
+    "description": "The sidebar doesn't collapse properly on mobile devices, overlapping content.",
+    "user": "John Doe",
+    "userId": "usr_123",
+    "createdAt": "2025-12-01T16:20:00Z",
+    "status": "Closed",
+    "priority": "Low",
+    "attachments": [],
+    "comments": [
+      {
+        "id": "cmt_005",
+        "author": "Admin",
+        "authorRole": "Admin",
+        "message": "This has been addressed in the responsive design update.",
+        "timestamp": "2025-12-01T17:45:00Z"
+      }
+    ]
+  }
+]

@@ -36,14 +36,14 @@ router.use((req, res, next) => {
 });
 
 router.post('/', validateRequest(createTenantSchema), tenantController.createTenant);
-router.get('/', tenantController.listTenants);
-router.get('/:id', tenantController.getTenant);
-router.patch('/:id', validateRequest(updateTenantSchema), tenantController.updateTenant);
-router.delete('/:id', tenantController.deleteTenant);
-
 // Billing routes - authenticated users can access their own billing info
 router.get('/billing', authenticate, tenantController.getTenantBillingInfo);
 router.get('/billing/plans', authenticate, tenantController.getPersonalizedBillingPlans);
 router.patch('/plan', authenticate, tenantController.updateTenantPlan);
+
+router.get('/', tenantController.listTenants);
+router.get('/:id', tenantController.getTenant);
+router.patch('/:id', validateRequest(updateTenantSchema), tenantController.updateTenant);
+router.delete('/:id', tenantController.deleteTenant);
 
 export default router;

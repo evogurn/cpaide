@@ -1,5 +1,8 @@
 import documentService from '../services/document.service.js';
 import fileService from '../services/file.service.js';
+import documentUploadService from '../services/document-upload.service.js';
+import notificationService from '../services/notification.service.js';
+import prisma from '../config/db.js';
 import { HTTP_STATUS } from '../constants/index.js';
 import { successResponse } from '../utils/response.js';
 import { paginate, paginationMeta } from '../utils/response.js';
@@ -15,19 +18,24 @@ class DocumentController {
       const { fileName, contentType } = req.body;
       const tenantId = req.tenantId;
       
-      const uniqueFileName = generateUniqueFilename(fileName);
       // Generate the storage key using a proper document ID
       // This will be a temporary ID until the document is created in the database
       const tempDocumentId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      const storageKey = getStorageKey(tenantId, uniqueFileName, tempDocumentId, 'raw');
       
-      const { uploadUrl, key } = await fileService.getUploadUrl(storageKey, contentType, tenantId);
+      // Use the document upload service to generate secure object key with tenant isolation
+      const { presignedUrl: uploadUrl, objectKey: key } = await documentUploadService.generatePresignedUploadUrl(
+        tenantId,
+        fileName,
+        contentType,
+        0, // fileSize - not available yet
+        tempDocumentId
+      );
       
       return res.status(HTTP_STATUS.OK).json(
         successResponse({
           uploadUrl,
           key,
-          fileName: uniqueFileName,
+          fileName,
         }, 'Upload URL generated')
       );
     } catch (error) {
@@ -65,6 +73,23 @@ class DocumentController {
         storageKey,
       });
       
+      // Send notification to tenant admin about staff document upload
+      try {
+        const user = await prisma.user.findUnique({
+          where: { id: req.userId }
+        });
+        
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: req.tenantId }
+        });
+        
+        if (user && tenant) {
+          await notificationService.sendStaffDocumentUploadedNotification(document, user, tenant);
+        }
+      } catch (notificationError) {
+        console.error('Failed to send document upload notification:', notificationError);
+      }
+      
       // If we have a documentId from the storage key and it's different from the created document ID,
       // we might want to update the storage key to use the actual document ID
       if (documentId && documentId.startsWith('temp_')) {
@@ -72,8 +97,13 @@ class DocumentController {
         // For now, we'll keep the original storage key as is
       }
       
+      // Convert BigInt values to Numbers for JSON serialization
+      const serializedDocument = JSON.parse(JSON.stringify(document, (key, value) =>
+        typeof value === 'bigint' ? Number(value) : value
+      ));
+      
       return res.status(HTTP_STATUS.CREATED).json(
-        successResponse(document, 'Document created successfully', HTTP_STATUS.CREATED)
+        successResponse(serializedDocument, 'Document created successfully', HTTP_STATUS.CREATED)
       );
     } catch (error) {
       next(error);
@@ -170,7 +200,30 @@ class DocumentController {
   async renameDocument(req, res, next) {
     try {
       const { id } = req.params;
+      
+      // Get current document name for notification
+      const currentDocument = await prisma.document.findUnique({
+        where: { id }
+      });
+      
       const document = await documentService.renameDocument(id, req.tenantId, req.body.name);
+      
+      // Send notification to tenant admin about staff document renaming
+      try {
+        const user = await prisma.user.findUnique({
+          where: { id: req.userId }
+        });
+        
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: req.tenantId }
+        });
+        
+        if (user && tenant && currentDocument) {
+          await notificationService.sendStaffDocumentRenamedNotification(document, user, tenant, currentDocument.name);
+        }
+      } catch (notificationError) {
+        console.error('Failed to send document rename notification:', notificationError);
+      }
       
       return res.status(HTTP_STATUS.OK).json(
         successResponse(document, 'Document renamed')
@@ -188,10 +241,47 @@ class DocumentController {
       const { id } = req.params;
       const { targetFolderId } = req.body;
       
-      const document = await documentService.moveDocument(id, req.tenantId, targetFolderId);
+      // Get document and folder names for notification
+      const document = await prisma.document.findUnique({
+        where: { id },
+        include: { folder: true }
+      });
+      
+      const targetFolder = targetFolderId ? 
+        await prisma.folder.findUnique({
+          where: { id: targetFolderId }
+        }) : null;
+      
+      const result = await documentService.moveDocument(id, req.tenantId, targetFolderId);
+      
+      // Send notification to tenant admin about staff document moving
+      try {
+        const user = await prisma.user.findUnique({
+          where: { id: req.userId }
+        });
+        
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: req.tenantId }
+        });
+        
+        if (user && tenant && document) {
+          const oldFolderName = document.folder ? document.folder.name : 'Root';
+          const newFolderName = targetFolder ? targetFolder.name : 'Root';
+          
+          await notificationService.sendStaffDocumentMovedNotification(
+            result, 
+            user, 
+            tenant, 
+            oldFolderName, 
+            newFolderName
+          );
+        }
+      } catch (notificationError) {
+        console.error('Failed to send document move notification:', notificationError);
+      }
       
       return res.status(HTTP_STATUS.OK).json(
-        successResponse(document, 'Document moved')
+        successResponse(result, 'Document moved')
       );
     } catch (error) {
       next(error);
@@ -205,6 +295,23 @@ class DocumentController {
     try {
       const { id } = req.params;
       const document = await documentService.getDocumentById(id, req.tenantId); // Verify document belongs to tenant first
+      
+      // Send notification to tenant admin about staff document deletion
+      try {
+        const user = await prisma.user.findUnique({
+          where: { id: req.userId }
+        });
+        
+        const tenant = await prisma.tenant.findUnique({
+          where: { id: req.tenantId }
+        });
+        
+        if (user && tenant && document) {
+          await notificationService.sendStaffDocumentDeletedNotification(document.name, user, tenant);
+        }
+      } catch (notificationError) {
+        console.error('Failed to send document deletion notification:', notificationError);
+      }
       
       const result = await documentService.deleteDocument(id, req.tenantId);
       
@@ -255,6 +362,40 @@ class DocumentController {
       
       const { downloadUrl } = await fileService.getDownloadUrl(document.storageKey, req.tenantId);
       
+      // Log the download activity in the audit log and update document metadata
+      try {
+        await prisma.auditLog.create({
+          data: {
+            tenantId: req.tenantId,
+            userId: req.user?.id,
+            action: 'DOWNLOAD',
+            resource: 'DOCUMENT',
+            resourceId: id,
+            metadata: {
+              name: document.name,
+              storageKey: document.storageKey,
+              downloadUrl: downloadUrl
+            }
+          }
+        });
+
+        // Update document metadata with last download info
+        const currentMetadata = document.metadata || {};
+        await prisma.document.update({
+          where: { id },
+          data: {
+            metadata: {
+              ...currentMetadata,
+              lastDownloadUrl: downloadUrl,
+              lastDownloadedAt: new Date(),
+              lastDownloadedBy: req.user?.id
+            }
+          }
+        });
+      } catch (dbError) {
+        logger.error('Failed to log download activity', { error: dbError.message });
+      }
+
       return res.status(HTTP_STATUS.OK).json(
         successResponse({ downloadUrl }, 'Download URL generated')
       );

@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tenant Billing Expired</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #dc3545;
+            padding-bottom: 20px;
+        }
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            color: #dc3545;
+            margin-bottom: 10px;
+        }
+        .content {
+            margin: 20px 0;
+        }
+        .details {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            padding: 20px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .urgent {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            text-align: center;
+            font-weight: bold;
+            color: #856404;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            color: #666;
+            font-size: 12px;
+        }
+        .highlight {
+            color: #dc3545;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">CPAide</div>
+            <h2 style="color: #dc3545;">⚠️ Tenant Billing Expired</h2>
+        </div>
+        
+        <div class="content">
+            <p>Hello Master Admin,</p>
+            
+            <div class="urgent">
+                ⚠️ URGENT ACTION REQUIRED ⚠️
+            </div>
+            
+            <p>A tenant's billing has expired and requires immediate attention:</p>
+            
+            <div class="details">
+                <p><strong>Tenant Name:</strong> <span class="highlight">{{tenantName}}</span></p>
+                <p><strong>Tenant ID:</strong> {{tenantId}}</p>
+                <p><strong>Expired At:</strong> {{expiredAt}}</p>
+                <p><strong>Status:</strong> <span class="highlight">EXPIRED</span></p>
+            </div>
+            
+            <p><strong>Action Required:</strong></p>
+            <ul>
+                <li>Contact the tenant to resolve billing issues</li>
+                <li>Review account status and payment history</li>
+                <li>Determine next steps for account management</li>
+            </ul>
+            
+            <p>Please address this matter promptly to maintain system integrity.</p>
+        </div>
+        
+        <div class="footer">
+            <p>© 2025 CPAide. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

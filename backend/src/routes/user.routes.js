@@ -24,6 +24,18 @@ router.get(
 );
 
 router.get(
+  '/roles',
+  requirePermission([PERMISSIONS.USER_READ]),
+  userController.listRoles
+);
+
+router.get(
+  '/permissions',
+  requirePermission([PERMISSIONS.USER_READ]),
+  userController.listPermissions
+);
+
+router.get(
   '/:id',
   requirePermission([PERMISSIONS.USER_READ]),
   userController.getUser

@@ -1,6 +1,7 @@
 import prisma from '../config/db.js';
 import emailService from '../services/email.service.js';
 import notificationService from '../services/notification.service.js';
+import userService from '../services/user.service.js';
 import { successResponse } from '../utils/response.js';
 
 
@@ -195,6 +196,31 @@ export const getAllUsers = async (req, res, next) => {
 };
 
 /**
+ * Create a new user (Master Admin)
+ */
+export const createUserAdmin = async (req, res, next) => {
+  try {
+    const { firstName, lastName, email, tenantId, status, roleIds } = req.body;
+
+    const user = await userService.createUser({
+      tenantId,
+      email,
+      firstName,
+      lastName,
+      roleIds,
+      sendInvite: true // Master admin creations should always send invite
+    });
+
+    return res.status(201).json(
+      successResponse(user, 'User created successfully by admin')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+/**
  * Update user status
  */
 export const updateUserStatus = async (req, res, next) => {
@@ -209,6 +235,60 @@ export const updateUserStatus = async (req, res, next) => {
 
     return res.status(200).json(
       successResponse(user, 'User status updated successfully')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Reset user password (Master Admin)
+ */
+export const resetUserPassword = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const { password } = req.body;
+
+    await userService.resetPassword(userId, password);
+
+    return res.status(200).json(
+      successResponse(null, 'User password reset successfully')
+    );
+  } catch (error) {
+    console.error('Error resetting user password:', error);
+    next(error);
+  }
+};
+
+/**
+ * Update user details (Master Admin)
+ */
+export const updateUserAdmin = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+    const updateData = req.body;
+
+    const user = await userService.updateUser(userId, updateData);
+
+    return res.status(200).json(
+      successResponse(user, 'User updated successfully by admin')
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Delete user (Master Admin)
+ */
+export const deleteUserAdmin = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+
+    await userService.deleteUser(userId);
+
+    return res.status(200).json(
+      successResponse(null, 'User deleted successfully by admin')
     );
   } catch (error) {
     next(error);

@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "name": "Site Survey - Lot 27.pdf",
+    "type": "PDF",
+    "size": "2.4 MB",
+    "date": "2023-10-15",
+    "icon": "pdf"
+  },
+  {
+    "id": 2,
+    "name": "Floor Plan - Custom Home.dwg",
+    "type": "DWG",
+    "size": "5.1 MB",
+    "date": "2023-10-12",
+    "icon": "doc"
+  },
+  {
+    "id": 3,
+    "name": "Foundation Inspection Report.pdf",
+    "type": "PDF",
+    "size": "1.3 MB",
+    "date": "2023-10-10",
+    "icon": "pdf"
+  },
+  {
+    "id": 4,
+    "name": "HVAC Layout.pdf",
+    "type": "PDF",
+    "size": "3.7 MB",
+    "date": "2023-10-08",
+    "icon": "pdf"
+  },
+  {
+    "id": 5,
+    "name": "Material Specifications.pdf",
+    "type": "PDF",
+    "size": "4.2 MB",
+    "date": "2023-10-05",
+    "icon": "pdf"
+  }
+]

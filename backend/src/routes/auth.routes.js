@@ -1,7 +1,7 @@
 import express from 'express';
 import authController from '../controllers/auth.controller.js';
 import { validateRequest } from '../middlewares/validate.js';
-import { loginSchema, registerSchema, refreshTokenSchema, tenantRegisterSchema } from '../validations/auth.validation.js';
+import { loginSchema, registerSchema, refreshTokenSchema, tenantRegisterSchema, changePasswordSchema } from '../validations/auth.validation.js';
 import { authenticate } from '../middlewares/auth.js';
 import { authLimiter } from '../middlewares/rateLimiter.js';
 
@@ -16,5 +16,6 @@ router.post('/refresh', validateRequest(refreshTokenSchema), authController.refr
 // Protected routes
 router.post('/logout', authenticate, authController.logout);
 router.get('/me', authenticate, authController.me);
+router.post('/change-password', authenticate, validateRequest(changePasswordSchema), authController.changePassword);
 
 export default router;

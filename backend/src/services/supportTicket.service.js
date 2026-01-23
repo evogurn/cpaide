@@ -31,26 +31,11 @@ class SupportTicketService {
 
     // Send notification to master admin about new ticket
     try {
-      // Create notification for master admin
-      await notificationService.createNotification({
-        type: NOTIFICATION_TYPES.SUPPORT_TICKET_CREATED,
-        title: 'New Support Ticket Created',
-        message: `A new support ticket "${ticket.title}" has been created by ${ticket.createdByUser.firstName} ${ticket.createdByUser.lastName}`,
-        tenantId: ticket.tenantId,
-        data: {
-          ticketId: ticket.id,
-          tenantName: ticket.tenant.name,
-          createdBy: ticket.createdByUser.firstName + ' ' + ticket.createdByUser.lastName,
-        },
-        isUrgent: priority === 'URGENT',
-      });
-
-      // Send email notification to master admin
-      const masterAdminEmail = process.env.MASTER_ADMIN_EMAIL || 'admin@cpaide.com';
-      await emailService.sendSupportTicketNotification(
-        { id: ticket.id, title: ticket.title, description: ticket.description },
-        masterAdminEmail,
-        'new'
+      // Send notification and email to master admin
+      await notificationService.sendSupportTicketNotification(
+        { id: ticket.id, title: ticket.title, description: ticket.description, status: ticket.status, priority: ticket.priority, tenantId: ticket.tenantId },
+        null, // Send to master admin
+        'SUPPORT_TICKET_CREATED'
       );
     } catch (notificationError) {
       console.error('Failed to send support ticket notification:', notificationError);

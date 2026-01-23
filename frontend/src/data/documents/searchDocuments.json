@@ -1,0 +1,170 @@
+[
+  {
+    "id": 1,
+    "name": "Site Survey - Lot 27.pdf",
+    "type": "PDF",
+    "size": "2.4 MB",
+    "modified": "2023-10-15",
+    "tags": [
+      "survey",
+      "lot-27",
+      "site-inspection"
+    ],
+    "icon": "pdf",
+    "snippet": "Complete site survey for Lot 27 including boundary measurements, elevation data, and soil composition analysis."
+  },
+  {
+    "id": 2,
+    "name": "Floor Plan - Custom Home.dwg",
+    "type": "DWG",
+    "size": "5.1 MB",
+    "modified": "2023-10-12",
+    "tags": [
+      "floor-plan",
+      "custom",
+      "blueprint"
+    ],
+    "icon": "doc",
+    "snippet": "Detailed floor plan drawings for the custom home project including all rooms, dimensions, and architectural features."
+  },
+  {
+    "id": 3,
+    "name": "Foundation Inspection Report.pdf",
+    "type": "PDF",
+    "size": "1.3 MB",
+    "modified": "2023-10-10",
+    "tags": [
+      "inspection",
+      "foundation",
+      "structural"
+    ],
+    "icon": "pdf",
+    "snippet": "Official inspection report for foundation work including compliance verification and any required corrections."
+  },
+  {
+    "id": 4,
+    "name": "HVAC Layout.pdf",
+    "type": "PDF",
+    "size": "3.7 MB",
+    "modified": "2023-10-08",
+    "tags": [
+      "hvac",
+      "mechanical",
+      "systems"
+    ],
+    "icon": "pdf",
+    "snippet": "HVAC system layout including ductwork routing, equipment placement, and ventilation specifications."
+  },
+  {
+    "id": 5,
+    "name": "Material Specifications.pdf",
+    "type": "PDF",
+    "size": "4.2 MB",
+    "modified": "2023-10-05",
+    "tags": [
+      "materials",
+      "specifications",
+      "procurement"
+    ],
+    "icon": "pdf",
+    "snippet": "Detailed material specifications for all construction materials including grades, brands, and compliance standards."
+  },
+  {
+    "id": 6,
+    "name": "Electrical Layout.dwg",
+    "type": "DWG",
+    "size": "4.8 MB",
+    "modified": "2023-10-03",
+    "tags": [
+      "electrical",
+      "layout",
+      "wiring"
+    ],
+    "icon": "doc",
+    "snippet": "Complete electrical layout drawings including circuit plans, outlet locations, and panel schedules."
+  },
+  {
+    "id": 7,
+    "name": "Plumbing Diagram.pdf",
+    "type": "PDF",
+    "size": "2.9 MB",
+    "modified": "2023-10-01",
+    "tags": [
+      "plumbing",
+      "diagram",
+      "pipes"
+    ],
+    "icon": "pdf",
+    "snippet": "Plumbing system diagram showing pipe routing, fixture connections, and water supply details."
+  },
+  {
+    "id": 8,
+    "name": "Contractor Agreement.pdf",
+    "type": "PDF",
+    "size": "1.6 MB",
+    "modified": "2023-09-28",
+    "tags": [
+      "contract",
+      "legal",
+      "agreement"
+    ],
+    "icon": "pdf",
+    "snippet": "Signed contractor agreement outlining scope of work, payment terms, and project timeline."
+  },
+  {
+    "id": 9,
+    "name": "Permit Application - Lot 27.pdf",
+    "type": "PDF",
+    "size": "0.9 MB",
+    "modified": "2023-09-25",
+    "tags": [
+      "permit",
+      "lot-27",
+      "approval"
+    ],
+    "icon": "pdf",
+    "snippet": "Building permit application package submitted to city planning department for Lot 27 construction."
+  },
+  {
+    "id": 10,
+    "name": "Structural Engineering Plans.pdf",
+    "type": "PDF",
+    "size": "6.3 MB",
+    "modified": "2023-09-22",
+    "tags": [
+      "structural",
+      "engineering",
+      "calculations"
+    ],
+    "icon": "pdf",
+    "snippet": "Structural engineering calculations and plans for foundation and framing systems."
+  },
+  {
+    "id": 11,
+    "name": "Safety Compliance Checklist.xlsx",
+    "type": "XLSX",
+    "size": "0.3 MB",
+    "modified": "2023-09-20",
+    "tags": [
+      "safety",
+      "compliance",
+      "checklist"
+    ],
+    "icon": "xls",
+    "snippet": "Daily safety compliance checklist for construction site operations and hazard monitoring."
+  },
+  {
+    "id": 12,
+    "name": "Progress Photos - Week 15.zip",
+    "type": "ZIP",
+    "size": "45.2 MB",
+    "modified": "2023-09-18",
+    "tags": [
+      "photos",
+      "progress",
+      "weekly"
+    ],
+    "icon": "zip",
+    "snippet": "Weekly progress photos documenting construction milestones and site conditions."
+  }
+]
